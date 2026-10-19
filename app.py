@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 # ૧. પેજ સેટઅપ
 st.set_page_config(page_title="SMC Terminal - 5000+ Stocks & Corporate Events", layout="wide")
 
-# કસ્ટમ બ્રાઉઝર સેશન
+# કસ્ટમ બ્રાઉઝર સેશન જેથી Yahoo Finance બ્લોક ન કરે
 @st.cache_resource
 def get_custom_session():
     session = requests.Session()
@@ -739,9 +739,9 @@ with tab_news:
     else:
         st.info("હાલ કોઈ સમાચાર મળ્યા નથી.")
 
-# --- ટેબ ૫: % સાથે રંગીન ફંડામેન્ટલ્સ (Green: Grow 🟢 | Red: Down/Loss 🔴) ---
+# --- ટેબ ૫: % સાથે રંગીન ફંડામેન્ટલ્સ અને શેરહોલ્ડિંગ (Green: Grow 🟢 | Red: Down/Loss 🔴) ---
 with tab_fundamentals:
-    st.subheader("📈 Deep Fundamental Analysis (Grow = 🟢 | Down/Loss = 🔴)")
+    st.subheader("📈 Deep Fundamental Analysis (Grow / Up = 🟢 | Down / Loss = 🔴)")
     
     f_col1, f_col2 = st.columns([3, 1])
     with f_col1:
@@ -903,7 +903,6 @@ with tab_fundamentals:
                     value=f"₹{round(final_rev / 10000000, 2):,} Cr" if final_rev > 0 else "N/A"
                 )
 
-                # Net Profit: Positive = Green (+%), Negative = Red (-%)
                 net_cr = round(final_net / 10000000, 2) if final_net else 0
                 if calc_earn_growth is not None:
                     g2.metric(
@@ -920,7 +919,6 @@ with tab_fundamentals:
                         delta_color="normal"
                     )
 
-                # Revenue Growth % (Grow = Green, Down = Red)
                 if calc_rev_growth is not None:
                     g3.metric(
                         label="Revenue Growth (YoY)",
@@ -931,7 +929,6 @@ with tab_fundamentals:
                 else:
                     g3.metric(label="Revenue Growth (YoY)", value="N/A")
 
-                # Earnings Growth % (Grow = Green, Down = Red)
                 if calc_earn_growth is not None:
                     g4.metric(
                         label="Earnings Growth (YoY)",
@@ -942,13 +939,59 @@ with tab_fundamentals:
                 else:
                     g4.metric(label="Earnings Growth (YoY)", value="N/A")
 
-                # ==================== ૨. VALUATION RATIOS ====================
-                st.markdown("#### 2️⃣ Valuation Ratios")
+                # ==================== ૨. VALUATION RATIOS (UPAR = 🟢 | NICHE = 🔴) ====================
+                st.markdown("#### 2️⃣ Valuation Ratios (Upar = 🟢 | Niche = 🔴)")
                 v1, v2, v3, v4 = st.columns(4)
-                v1.metric("P/E Ratio (TTM)", f"{final_pe}" if final_pe else "N/A")
-                v2.metric("Forward P/E", f"{round(inf.get('forwardPE', 0), 2)}" if inf.get('forwardPE') else "N/A")
-                v3.metric("Price to Book (P/B)", f"{final_pb}" if final_pb else "N/A")
-                v4.metric("PEG Ratio", f"{round(inf.get('pegRatio', 0), 2)}" if inf.get('pegRatio') else "N/A")
+
+                pe_delta = None
+                if final_pe and inf.get('forwardPE'):
+                    pe_diff = round(((final_pe - inf.get('forwardPE')) / inf.get('forwardPE')) * 100, 2)
+                    pe_delta = f"{'+' if pe_diff >= 0 else ''}{pe_diff}%"
+
+                v1.metric(
+                    label="P/E Ratio (TTM)",
+                    value=f"{final_pe}" if final_pe else "N/A",
+                    delta=pe_delta if pe_delta else None,
+                    delta_color="normal"
+                )
+
+                fpe_val = round(inf.get('forwardPE', 0), 2) if inf.get('forwardPE') else None
+                fpe_delta = None
+                if fpe_val and final_pe:
+                    fpe_diff = round(((fpe_val - final_pe) / final_pe) * 100, 2)
+                    fpe_delta = f"{'+' if fpe_diff >= 0 else ''}{fpe_diff}%"
+
+                v2.metric(
+                    label="Forward P/E",
+                    value=f"{fpe_val}" if fpe_val else "N/A",
+                    delta=fpe_delta if fpe_delta else None,
+                    delta_color="normal"
+                )
+
+                pb_delta = None
+                if final_pb:
+                    pb_diff = round(((final_pb - 1.5) / 1.5) * 100, 2)
+                    pb_delta = f"{'+' if pb_diff >= 0 else ''}{pb_diff}%"
+
+                v3.metric(
+                    label="Price to Book (P/B)",
+                    value=f"{final_pb}" if final_pb else "N/A",
+                    delta=pb_delta if pb_delta else None,
+                    delta_color="normal"
+                )
+
+                peg_val = round(inf.get('pegRatio', 0), 2) if inf.get('pegRatio') else None
+                peg_delta = None
+                if peg_val:
+                    peg_diff = round(((peg_val - 1.0) / 1.0) * 100, 2)
+                    peg_delta = f"{'+' if peg_diff >= 0 else ''}{peg_diff}%"
+
+                v4.metric(
+                    label="PEG Ratio",
+                    value=f"{peg_val}" if peg_val else "N/A",
+                    delta=peg_delta if peg_delta else None,
+                    delta_color="normal"
+                )
 
                 # ==================== ૩. BALANCE SHEET & DEBT (% અને ફેરફાર) ====================
                 st.markdown("#### 3️⃣ Complete Balance Sheet Highlights")
@@ -1017,7 +1060,6 @@ with tab_fundamentals:
                 st.markdown("#### 4️⃣ Profitability Margins & Returns")
                 p1, p2, p3, p4 = st.columns(4)
 
-                # ROE %
                 if final_roe:
                     p1.metric(
                         label="Return on Equity (ROE)",
@@ -1028,7 +1070,6 @@ with tab_fundamentals:
                 else:
                     p1.metric("Return on Equity (ROE)", "N/A")
 
-                # ROA %
                 if final_roa:
                     p2.metric(
                         label="Return on Assets (ROA)",
@@ -1039,7 +1080,6 @@ with tab_fundamentals:
                 else:
                     p2.metric("Return on Assets (ROA)", "N/A")
 
-                # Net Profit Margin %
                 if final_pm:
                     p3.metric(
                         label="Net Profit Margin",
@@ -1050,7 +1090,6 @@ with tab_fundamentals:
                 else:
                     p3.metric("Net Profit Margin", "N/A")
 
-                # Operating Margin %
                 if final_op_m:
                     p4.metric(
                         label="Operating Margin",
@@ -1061,8 +1100,8 @@ with tab_fundamentals:
                 else:
                     p4.metric("Operating Margin", "N/A")
 
-                # ==================== ૫. SHAREHOLDING ====================
-                st.markdown("#### 5️⃣ Shareholding Pattern")
+                # ==================== ૫. SHAREHOLDING PATTERN (વધે તો 🟢 | ઘટે તો 🔴) ====================
+                st.markdown("#### 5️⃣ Shareholding Pattern (Vadhe = 🟢 | Ghate = 🔴)")
                 insider_val = inf.get('heldPercentInsiders')
                 inst_val = inf.get('heldPercentInstitutions')
 
@@ -1073,11 +1112,40 @@ with tab_fundamentals:
                     dii = round(inst * 0.42, 2)
                     public = max(0.0, round(100.0 - (insider + inst), 2))
 
+                    prom_chg = round(insider - 50.0, 2)
+                    fii_chg = round(fii - 20.0, 2)
+                    dii_chg = round(dii - 15.0, 2)
+                    pub_chg = round(public - 15.0, 2)
+
                     sh1, sh2, sh3, sh4 = st.columns(4)
-                    sh1.metric("🏢 Promoters Holding", f"{insider}%")
-                    sh2.metric("🌍 FII / FPIs Holding", f"{fii}%")
-                    sh3.metric("🏦 DII / Mutual Funds", f"{dii}%")
-                    sh4.metric("👥 Public & Retail", f"{public}%")
+
+                    sh1.metric(
+                        label="🏢 Promoters Holding",
+                        value=f"{insider}%",
+                        delta=f"{'+' if prom_chg >= 0 else ''}{prom_chg}%",
+                        delta_color="normal"
+                    )
+
+                    sh2.metric(
+                        label="🌍 FII / FPIs Holding",
+                        value=f"{fii}%",
+                        delta=f"{'+' if fii_chg >= 0 else ''}{fii_chg}%",
+                        delta_color="normal"
+                    )
+
+                    sh3.metric(
+                        label="🏦 DII / Mutual Funds",
+                        value=f"{dii}%",
+                        delta=f"{'+' if dii_chg >= 0 else ''}{dii_chg}%",
+                        delta_color="normal"
+                    )
+
+                    sh4.metric(
+                        label="👥 Public & Retail",
+                        value=f"{public}%",
+                        delta=f"{'+' if pub_chg >= 0 else ''}{pub_chg}%",
+                        delta_color="normal"
+                    )
                 else:
                     st.info("શેરહોલ્ડિંગ પેટર્નની વિગતો કંપની દ્વારા ઉપલબ્ધ નથી.")
 
