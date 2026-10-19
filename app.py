@@ -721,7 +721,7 @@ with tab_events:
 with tab_news:
     st.subheader("📰 Market & Stock Live News (Full Reports)")
     news_stock = st.selectbox(
-        "Stock News શોધો (ખાલી રાખશો તો Market News આવશે):",
+        "Stock News શોધો (Auto-suggestions, ખાલી રાખશો તો Market News આવશે):",
         options=stock_options_list,
         index=0
     )
@@ -739,9 +739,9 @@ with tab_news:
     else:
         st.info("હાલ કોઈ સમાચાર મળ્યા નથી.")
 
-# --- ટેબ ૫: ૧૦૦% સુધારેલું DEEP FUNDAMENTALS (N/A વગર) ---
+# --- ટેબ ૫: % સાથે રંગીન ફંડામેન્ટલ્સ (Green: Grow 🟢 | Red: Down/Loss 🔴) ---
 with tab_fundamentals:
-    st.subheader("📈 Deep Fundamental Analysis, TTM, Balance Sheet & Financial Statements")
+    st.subheader("📈 Deep Fundamental Analysis (Grow = 🟢 | Down/Loss = 🔴)")
     
     f_col1, f_col2 = st.columns([3, 1])
     with f_col1:
@@ -787,49 +787,78 @@ with tab_fundamentals:
                 mcap = fast.market_cap or 0
                 mcap_cr_val = round(mcap / 10000000, 2) if mcap > 0 else 0
 
-                # ==================== SMART CALCULATION FALLBACK ====================
-                # ૧. TTM Revenue & Profit ગણતરી (Financials સ્ટેટમેન્ટમાંથી)
+                # ૧. Financials (P&L) માંથી રેવન્યુ અને પ્રોફિટ
                 calc_rev = 0
                 calc_net = 0
+                calc_prev_rev = 0
+                calc_prev_net = 0
+                calc_op_inc = 0
+                
                 if not fin_df.empty:
                     if 'Total Revenue' in fin_df.index:
                         calc_rev = fin_df.loc['Total Revenue'].iloc[0]
+                        if len(fin_df.loc['Total Revenue']) > 1:
+                            calc_prev_rev = fin_df.loc['Total Revenue'].iloc[1]
                     if 'Net Income' in fin_df.index:
                         calc_net = fin_df.loc['Net Income'].iloc[0]
+                        if len(fin_df.loc['Net Income']) > 1:
+                            calc_prev_net = fin_df.loc['Net Income'].iloc[1]
+                    if 'Operating Income' in fin_df.index and len(fin_df.loc['Operating Income']) > 0:
+                        calc_op_inc = fin_df.loc['Operating Income'].iloc[0]
 
-                # ૨. Balance Sheet ડેટા ગણતરી
+                # ૨. Balance Sheet ડેટા
                 calc_debt = 0
                 calc_equity = 0
                 calc_assets = 0
                 calc_cash = 0
+                calc_c_assets = 0
+                calc_c_liab = 0
                 if not bs_df.empty:
-                    if 'Total Debt' in bs_df.index:
+                    if 'Total Debt' in bs_df.index and len(bs_df.loc['Total Debt']) > 0:
                         calc_debt = bs_df.loc['Total Debt'].iloc[0]
-                    if 'Stockholders Equity' in bs_df.index:
+                    if 'Stockholders Equity' in bs_df.index and len(bs_df.loc['Stockholders Equity']) > 0:
                         calc_equity = bs_df.loc['Stockholders Equity'].iloc[0]
-                    elif 'Common Stock Equity' in bs_df.index:
+                    elif 'Common Stock Equity' in bs_df.index and len(bs_df.loc['Common Stock Equity']) > 0:
                         calc_equity = bs_df.loc['Common Stock Equity'].iloc[0]
-                    if 'Total Assets' in bs_df.index:
+                    if 'Total Assets' in bs_df.index and len(bs_df.loc['Total Assets']) > 0:
                         calc_assets = bs_df.loc['Total Assets'].iloc[0]
-                    if 'Cash And Cash Equivalents' in bs_df.index:
+                    if 'Cash And Cash Equivalents' in bs_df.index and len(bs_df.loc['Cash And Cash Equivalents']) > 0:
                         calc_cash = bs_df.loc['Cash And Cash Equivalents'].iloc[0]
+                    if 'Current Assets' in bs_df.index and len(bs_df.loc['Current Assets']) > 0:
+                        calc_c_assets = bs_df.loc['Current Assets'].iloc[0]
+                    if 'Current Liabilities' in bs_df.index and len(bs_df.loc['Current Liabilities']) > 0:
+                        calc_c_liab = bs_df.loc['Current Liabilities'].iloc[0]
 
-                # ૩. Cashflow ગણતરી
+                # ૩. Cashflow
                 calc_fcf = 0
                 calc_ocf = 0
                 if not cf_df.empty:
-                    if 'Free Cash Flow' in cf_df.index:
+                    if 'Free Cash Flow' in cf_df.index and len(cf_df.loc['Free Cash Flow']) > 0:
                         calc_fcf = cf_df.loc['Free Cash Flow'].iloc[0]
-                    if 'Operating Cash Flow' in cf_df.index:
+                    if 'Operating Cash Flow' in cf_df.index and len(cf_df.loc['Operating Cash Flow']) > 0:
                         calc_ocf = cf_df.loc['Operating Cash Flow'].iloc[0]
 
-                # વેલ્યુ નક્કી કરવી
                 final_rev = inf.get('totalRevenue') or calc_rev
                 final_net = inf.get('netIncomeToCommon') or calc_net
                 final_debt = inf.get('totalDebt') or calc_debt
                 final_cash = inf.get('totalCash') or calc_cash
+                final_fcf_val = inf.get('freeCashflow') or calc_fcf
+                final_ocf_val = inf.get('operatingCashflow') or calc_ocf
 
-                # રેશિયો કેલ્ક્યુલેશન (જો API માં ન હોય તો જાતે ગણવું)
+                # વાસ્તવિક % ગણતરી (YoY Growth Rates)
+                calc_rev_growth = None
+                if inf.get('revenueGrowth') is not None:
+                    calc_rev_growth = round(inf.get('revenueGrowth') * 100, 2)
+                elif calc_prev_rev and calc_prev_rev > 0:
+                    calc_rev_growth = round(((calc_rev - calc_prev_rev) / calc_prev_rev) * 100, 2)
+
+                calc_earn_growth = None
+                if inf.get('earningsGrowth') is not None:
+                    calc_earn_growth = round(inf.get('earningsGrowth') * 100, 2)
+                elif calc_prev_net and calc_prev_net != 0:
+                    calc_earn_growth = round(((calc_net - calc_prev_net) / abs(calc_prev_net)) * 100, 2)
+
+                # રેશિયો ગણતરી
                 final_pe = inf.get('trailingPE')
                 if not final_pe and mcap > 0 and final_net > 0:
                     final_pe = round(mcap / final_net, 2)
@@ -839,98 +868,220 @@ with tab_fundamentals:
                     final_pb = round(mcap / calc_equity, 2)
 
                 final_roe = inf.get('returnOnEquity')
-                if not final_roe and final_net > 0 and calc_equity > 0:
+                if not final_roe and final_net and calc_equity:
                     final_roe = round((final_net / calc_equity) * 100, 2)
                 elif final_roe:
                     final_roe = round(final_roe * 100, 2)
 
                 final_roa = inf.get('returnOnAssets')
-                if not final_roa and final_net > 0 and calc_assets > 0:
+                if not final_roa and final_net and calc_assets:
                     final_roa = round((final_net / calc_assets) * 100, 2)
                 elif final_roa:
                     final_roa = round(final_roa * 100, 2)
 
                 final_pm = inf.get('profitMargins')
-                if not final_pm and final_net > 0 and final_rev > 0:
+                if not final_pm and final_net and final_rev:
                     final_pm = round((final_net / final_rev) * 100, 2)
                 elif final_pm:
                     final_pm = round(final_pm * 100, 2)
 
-                st.markdown(f"### 🏢 **{inf.get('longName', clean_name)}** (LTP: ₹{curr_price})")
-                st.caption(f"Sector: **{inf.get('sector', 'Manufacturing / Industrials')}** | Industry: **{inf.get('industry', 'Diversified')}** | Market Cap: **₹{mcap_cr_val:,} Cr**")
+                final_op_m = inf.get('operatingMargins')
+                if not final_op_m and calc_op_inc and final_rev:
+                    final_op_m = round((calc_op_inc / final_rev) * 100, 2)
+                elif final_op_m:
+                    final_op_m = round(final_op_m * 100, 2)
 
-                # ૧. TTM & GROWTH
+                st.markdown(f"### 🏢 **{inf.get('longName', clean_name)}** (LTP: ₹{curr_price})")
+                st.caption(f"Sector: **{inf.get('sector', 'N/A')}** | Industry: **{inf.get('industry', 'N/A')}** | Market Cap: **₹{mcap_cr_val:,} Cr**")
+
+                # ==================== ૧. TTM & GROWTH (% સાથે કલર-કોડેડ) ====================
                 st.markdown("#### 1️⃣ TTM Performance & Growth Rates (Trailing 12 Months)")
                 g1, g2, g3, g4 = st.columns(4)
 
-                g1.metric("TTM Revenue", f"₹{round(final_rev / 10000000, 2):,} Cr" if final_rev > 0 else "₹8,92,450 Cr")
-                g2.metric("TTM Net Profit", f"₹{round(final_net / 10000000, 2):,} Cr" if final_net > 0 else "₹79,020 Cr")
-                
-                rev_g = inf.get('revenueGrowth')
-                g3.metric("Revenue Growth (YoY)", f"{round(rev_g * 100, 2)}%" if rev_g else "+11.4%", delta="+11.4%")
-                
-                earn_g = inf.get('earningsGrowth')
-                g4.metric("Earnings Growth (YoY)", f"{round(earn_g * 100, 2)}%" if earn_g else "+9.2%", delta="+9.2%")
+                g1.metric(
+                    label="TTM Revenue",
+                    value=f"₹{round(final_rev / 10000000, 2):,} Cr" if final_rev > 0 else "N/A"
+                )
 
-                # ૨. VALUATION RATIOS
+                # Net Profit: Positive = Green (+%), Negative = Red (-%)
+                net_cr = round(final_net / 10000000, 2) if final_net else 0
+                if calc_earn_growth is not None:
+                    g2.metric(
+                        label="TTM Net Profit",
+                        value=f"₹{net_cr:,} Cr",
+                        delta=f"{calc_earn_growth}% YoY",
+                        delta_color="normal"
+                    )
+                else:
+                    g2.metric(
+                        label="TTM Net Profit",
+                        value=f"₹{net_cr:,} Cr",
+                        delta="Profitable 🟢" if net_cr >= 0 else "Net Loss 🔴",
+                        delta_color="normal"
+                    )
+
+                # Revenue Growth % (Grow = Green, Down = Red)
+                if calc_rev_growth is not None:
+                    g3.metric(
+                        label="Revenue Growth (YoY)",
+                        value=f"{calc_rev_growth}%",
+                        delta=f"{calc_rev_growth}%",
+                        delta_color="normal"
+                    )
+                else:
+                    g3.metric(label="Revenue Growth (YoY)", value="N/A")
+
+                # Earnings Growth % (Grow = Green, Down = Red)
+                if calc_earn_growth is not None:
+                    g4.metric(
+                        label="Earnings Growth (YoY)",
+                        value=f"{calc_earn_growth}%",
+                        delta=f"{calc_earn_growth}%",
+                        delta_color="normal"
+                    )
+                else:
+                    g4.metric(label="Earnings Growth (YoY)", value="N/A")
+
+                # ==================== ૨. VALUATION RATIOS ====================
                 st.markdown("#### 2️⃣ Valuation Ratios")
                 v1, v2, v3, v4 = st.columns(4)
-                v1.metric("P/E Ratio (TTM)", f"{final_pe}" if final_pe else "24.2")
-                v2.metric("Forward P/E", f"{round(inf.get('forwardPE', 21.5), 2)}")
-                v3.metric("Price to Book (P/B)", f"{final_pb}" if final_pb else "2.35")
-                v4.metric("PEG Ratio", f"{round(inf.get('pegRatio', 1.45), 2)}")
+                v1.metric("P/E Ratio (TTM)", f"{final_pe}" if final_pe else "N/A")
+                v2.metric("Forward P/E", f"{round(inf.get('forwardPE', 0), 2)}" if inf.get('forwardPE') else "N/A")
+                v3.metric("Price to Book (P/B)", f"{final_pb}" if final_pb else "N/A")
+                v4.metric("PEG Ratio", f"{round(inf.get('pegRatio', 0), 2)}" if inf.get('pegRatio') else "N/A")
 
-                # ૩. BALANCE SHEET
+                # ==================== ૩. BALANCE SHEET & DEBT (% અને ફેરફાર) ====================
                 st.markdown("#### 3️⃣ Complete Balance Sheet Highlights")
                 b1, b2, b3, b4 = st.columns(4)
 
-                b1.metric("Total Debt", f"₹{round(final_debt / 10000000, 2):,} Cr" if final_debt > 0 else "₹1,85,200 Cr")
-                b2.metric("Cash & Equivalents", f"₹{round(final_cash / 10000000, 2):,} Cr" if final_cash > 0 else "₹95,400 Cr")
-                
-                bv = inf.get('bookValue') or (round(calc_equity / (mcap / curr_price), 2) if calc_equity > 0 and curr_price > 0 else None)
-                b3.metric("Book Value per Share", f"₹{round(bv, 2)}" if bv else f"₹{round(curr_price / 2.2, 2)}")
-                
-                cr = inf.get('currentRatio')
-                b4.metric("Current Ratio (Liquidity)", f"{round(cr, 2)}" if cr else "1.45")
+                debt_cr = round(final_debt / 10000000, 2) if final_debt > 0 else 0
+                b1.metric(
+                    label="Total Debt",
+                    value=f"₹{debt_cr:,} Cr" if final_debt > 0 else "₹0 (Debt Free)",
+                    delta="Debt Free 🟢" if debt_cr == 0 else f"-₹{debt_cr:,} Cr Debt",
+                    delta_color="inverse"
+                )
+
+                b2.metric("Cash & Equivalents", f"₹{round(final_cash / 10000000, 2):,} Cr" if final_cash > 0 else "N/A")
+
+                bv = inf.get('bookValue') or (round(calc_equity / (mcap / curr_price), 2) if calc_equity > 0 and curr_price > 0 and mcap > 0 else None)
+                b3.metric("Book Value per Share", f"₹{round(bv, 2)}" if bv else "N/A")
+
+                cr = inf.get('currentRatio') or (round(calc_c_assets / calc_c_liab, 2) if calc_c_liab > 0 else None)
+                if cr:
+                    b4.metric(
+                        label="Current Ratio (Liquidity)",
+                        value=f"{round(cr, 2)}",
+                        delta="+Healthy" if cr >= 1.3 else "-Low Liquidity",
+                        delta_color="normal"
+                    )
+                else:
+                    b4.metric("Current Ratio (Liquidity)", "N/A")
 
                 b5, b6, b7, b8 = st.columns(4)
+
                 de = inf.get('debtToEquity') or (round((final_debt / calc_equity) * 100, 2) if calc_equity > 0 else None)
-                b5.metric("Debt-to-Equity", f"{round(de / 100, 2)}" if de else "0.38 (Low)")
+                if de is not None:
+                    de_ratio = round(de / 100, 2)
+                    b5.metric(
+                        label="Debt-to-Equity",
+                        value=f"{de_ratio}",
+                        delta="-Safe Debt" if de_ratio <= 0.5 else "+High Risk",
+                        delta_color="inverse"
+                    )
+                else:
+                    b5.metric("Debt-to-Equity", "0.0")
 
                 quick_r = inf.get('quickRatio')
-                b6.metric("Quick Ratio", f"{round(quick_r, 2)}" if quick_r else "1.10")
+                b6.metric("Quick Ratio", f"{round(quick_r, 2)}" if quick_r else "N/A")
 
-                final_fcf_val = inf.get('freeCashflow') or calc_fcf
-                b7.metric("Free Cash Flow", f"₹{round(final_fcf_val / 10000000, 2):,} Cr" if final_fcf_val != 0 else "Positive (+)")
+                # Free Cash Flow
+                fcf_cr = round(final_fcf_val / 10000000, 2) if final_fcf_val else 0
+                b7.metric(
+                    label="Free Cash Flow",
+                    value=f"₹{fcf_cr:,} Cr" if final_fcf_val else "N/A",
+                    delta=f"+₹{fcf_cr:,} Cr" if fcf_cr >= 0 else f"{fcf_cr:,} Cr",
+                    delta_color="normal"
+                )
 
-                final_ocf_val = inf.get('operatingCashflow') or calc_ocf
-                b8.metric("Operating Cash Flow", f"₹{round(final_ocf_val / 10000000, 2):,} Cr" if final_ocf_val != 0 else "Positive (+)")
+                # Operating Cash Flow
+                ocf_cr = round(final_ocf_val / 10000000, 2) if final_ocf_val else 0
+                b8.metric(
+                    label="Operating Cash Flow",
+                    value=f"₹{ocf_cr:,} Cr" if final_ocf_val else "N/A",
+                    delta=f"+₹{ocf_cr:,} Cr" if ocf_cr >= 0 else f"{ocf_cr:,} Cr",
+                    delta_color="normal"
+                )
 
-                # ૪. PROFITABILITY
+                # ==================== ૪. PROFITABILITY MARGINS (% સાથે કલર-કોડેડ) ====================
                 st.markdown("#### 4️⃣ Profitability Margins & Returns")
                 p1, p2, p3, p4 = st.columns(4)
-                p1.metric("Return on Equity (ROE)", f"{final_roe}%" if final_roe else "14.2%")
-                p2.metric("Return on Assets (ROA)", f"{final_roa}%" if final_roa else "7.8%")
-                p3.metric("Net Profit Margin", f"{final_pm}%" if final_pm else "10.5%")
-                
-                op_m = inf.get('operatingMargins')
-                p4.metric("Operating Margin", f"{round(op_m * 100, 2)}%" if op_m else "16.4%")
 
-                # ૫. SHAREHOLDING
+                # ROE %
+                if final_roe:
+                    p1.metric(
+                        label="Return on Equity (ROE)",
+                        value=f"{final_roe}%",
+                        delta=f"{final_roe}%",
+                        delta_color="normal"
+                    )
+                else:
+                    p1.metric("Return on Equity (ROE)", "N/A")
+
+                # ROA %
+                if final_roa:
+                    p2.metric(
+                        label="Return on Assets (ROA)",
+                        value=f"{final_roa}%",
+                        delta=f"{final_roa}%",
+                        delta_color="normal"
+                    )
+                else:
+                    p2.metric("Return on Assets (ROA)", "N/A")
+
+                # Net Profit Margin %
+                if final_pm:
+                    p3.metric(
+                        label="Net Profit Margin",
+                        value=f"{final_pm}%",
+                        delta=f"{final_pm}%",
+                        delta_color="normal"
+                    )
+                else:
+                    p3.metric("Net Profit Margin", "N/A")
+
+                # Operating Margin %
+                if final_op_m:
+                    p4.metric(
+                        label="Operating Margin",
+                        value=f"{final_op_m}%",
+                        delta=f"{final_op_m}%",
+                        delta_color="normal"
+                    )
+                else:
+                    p4.metric("Operating Margin", "N/A")
+
+                # ==================== ૫. SHAREHOLDING ====================
                 st.markdown("#### 5️⃣ Shareholding Pattern")
-                insider = round((inf.get('heldPercentInsiders') or 0.503) * 100, 2)
-                inst = round((inf.get('heldPercentInstitutions') or 0.385) * 100, 2)
-                fii = round(inst * 0.58, 2)
-                dii = round(inst * 0.42, 2)
-                public = max(0.0, round(100.0 - (insider + inst), 2))
+                insider_val = inf.get('heldPercentInsiders')
+                inst_val = inf.get('heldPercentInstitutions')
 
-                sh1, sh2, sh3, sh4 = st.columns(4)
-                sh1.metric("🏢 Promoters Holding", f"{insider}%")
-                sh2.metric("🌍 FII / FPIs Holding", f"{fii}%")
-                sh3.metric("🏦 DII / Mutual Funds", f"{dii}%")
-                sh4.metric("👥 Public & Retail", f"{public}%")
+                if insider_val is not None:
+                    insider = round(insider_val * 100, 2)
+                    inst = round((inst_val or 0) * 100, 2)
+                    fii = round(inst * 0.58, 2)
+                    dii = round(inst * 0.42, 2)
+                    public = max(0.0, round(100.0 - (insider + inst), 2))
 
-                # ૬. RAW TABLES
+                    sh1, sh2, sh3, sh4 = st.columns(4)
+                    sh1.metric("🏢 Promoters Holding", f"{insider}%")
+                    sh2.metric("🌍 FII / FPIs Holding", f"{fii}%")
+                    sh3.metric("🏦 DII / Mutual Funds", f"{dii}%")
+                    sh4.metric("👥 Public & Retail", f"{public}%")
+                else:
+                    st.info("શેરહોલ્ડિંગ પેટર્નની વિગતો કંપની દ્વારા ઉપલબ્ધ નથી.")
+
+                # ==================== ૬. RAW TABLES ====================
                 st.markdown("#### 6️⃣ Audited Financial Statements (Raw Tables)")
                 
                 tab_fs1, tab_fs2, tab_fs3 = st.tabs([
