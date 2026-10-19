@@ -1,125 +1,175 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import numpy as np
 import urllib.request
 import io
 
-st.set_page_config(page_title="SMC Scanner - All 2000+ NSE Stocks", layout="wide")
-st.title("🏹 SMC Smart Money Trading Terminal (NSE - Badha Shares)")
+# ૧. પેજ સેટઅપ
+st.set_page_config(page_title="SMC Scanner & Halal Screener", layout="wide")
+st.title("⚡ SMC Trading Terminal & Shariah Screener")
 
-@st.cache_data
+# ૨. હરામ બિઝનેસ/સેક્ટર્સની યાદી
+HARAM_KEYWORDS = [
+    "bank", "finance", "housing finance", "insurance", "capital",
+    "brewery", "distilleries", "liquor", "spirits", "alcohol", "wine",
+    "tobacco", "cigarettes",
+    "casino", "gaming", "entertainment",
+    "pork", "hotel", "resort"
+]
+
+# ૩. સ્ટોક હલાલ છે કે હરામ તે ચકાસવું
+def check_halal_compliance(info):
+    try:
+        sector = str(info.get('sector', '')).lower()
+        industry = str(info.get('industry', '')).lower()
+
+        # સેક્ટર આધારિત સ્ક્રીનિંગ
+        for kw in HARAM_KEYWORDS:
+            if kw in sector or kw in industry:
+                return "❌ Haram", f"Excluded Sector: {kw.capitalize()}", sector.capitalize()
+
+        # ડેટ રેશિયો સ્ક્રીનિંગ (Debt < 33% of Market Cap)
+        total_debt = info.get('totalDebt', 0) or 0
+        market_cap = info.get('marketCap', 0) or 0
+        debt_ratio = (total_debt / market_cap) if market_cap > 0 else 0
+        
+        if market_cap > 0 and debt_ratio > 0.33:
+            return "❌ Haram", f"High Debt Ratio: {round(debt_ratio * 100, 1)}% (Limit: 33%)", sector.capitalize()
+
+        return "✅ Halal", "Shariah Compliant (Clean Business & Low Debt)", sector.capitalize()
+    except Exception:
+        return "⚠️ Unknown", "Data Incomplete", "N/A"
+
+# ૪. NSE સિમ્બોલ્સ ડાઉનલોડ કરવા
+@st.cache_data(ttl=86400)
 def get_all_nse_symbols():
     try:
         url = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
         req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-            }
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         )
-        html = urllib.request.urlopen(req).read()
-        df_nse = pd.read_csv(io.BytesIO(html))
-        syms = df_nse['SYMBOL'].dropna().unique().tolist()
-        return [s.strip() for s in syms if s.strip()]
+        with urllib.request.urlopen(req) as response:
+            csv_data = response.read()
+        df = pd.read_csv(io.StringIO(csv_data.decode('utf-8')))
+        symbols = [s + ".NS" for s in df['SYMBOL'].dropna().unique()]
+        return symbols
     except Exception:
-        # Fallback list jo network na chalse to Nifty 500
-        url_alt = "https://raw.githubusercontent.com/anirbm/ind_nifty500list/master/ind_nifty500list.csv"
+        return [
+            "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", 
+            "ICICIBANK.NS", "ITC.NS", "SBIN.NS", "BHARTIARTL.NS", 
+            "TATASTEEL.NS", "ASIANPAINT.NS", "HINDUNILVR.NS", "KOTAKBANK.NS", "TITAN.NS"
+        ]
+
+# ૫. SMC માર્કેટ સ્ટ્રક્ચર ચેક
+def check_smc_structure(df):
+    if len(df) < 15:
+        return "No Setup", 0.0
+
+    last_close = df['Close'].iloc[-1]
+    highest_recent = df['High'].iloc[-10:-1].max()
+    lowest_recent = df['Low'].iloc[-10:-1].min()
+
+    status = "Consolidation"
+    if last_close > highest_recent:
+        status = "Bullish BoS / Breakout"
+    elif last_close < lowest_recent:
+        status = "Bearish BoS / Breakdown"
+    elif df['Close'].iloc[-1] > df['High'].iloc[-2]:
+        status = "Bullish Pullback"
+    elif df['Close'].iloc[-1] < df['Low'].iloc[-2]:
+        status = "Bearish Pullback"
+
+    return status, round(last_close, 2)
+
+# ૬. પેજ લોડ થતાં જ ઓટોમેટિક સ્કેન
+@st.cache_data(ttl=300)
+def run_pre_scan():
+    symbols = get_all_nse_symbols()
+    results = []
+    
+    scan_list = symbols[:40]
+
+    for sym in scan_list:
         try:
-            df_alt = pd.read_csv(url_alt)
-            return df_alt['Symbol'].tolist()
+            ticker = yf.Ticker(sym)
+            data = ticker.history(period="1mo", interval="1d")
+            
+            if not data.empty:
+                smc_status, ltp = check_smc_structure(data)
+                info = ticker.info or {}
+                status, reason, sector = check_halal_compliance(info)
+
+                results.append({
+                    "Stock": sym.replace(".NS", ""),
+                    "LTP (₹)": ltp,
+                    "SMC Structure": smc_status,
+                    "Shariah Status": status,
+                    "Sector": sector,
+                    "Reason": reason
+                })
         except Exception:
-            return ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "TATAMOTORS", "SBIN"]
+            continue
 
-all_symbols = get_all_nse_symbols()
+    return pd.DataFrame(results)
 
-# Sidebar Controls
-st.sidebar.header("⚙️ Terminal Settings")
-st.sidebar.success(f"📊 **Total Available Stocks:** {len(all_symbols)}")
+# ડેટા ફેચિંગ
+with st.spinner("⏳ માર્કેટ સ્કેન અને શરિયા ડેટા પહેલેથી લોડ થઈ રહ્યો છે..."):
+    df_results = run_pre_scan()
 
-# Timeframe Options 1m thi 1mo
-timeframe_options = {
-    "1 Minute (1m)": ("1m", "1d"),
-    "2 Minutes (2m)": ("2m", "1d"),
-    "5 Minutes (5m)": ("5m", "5d"),
-    "15 Minutes (15m)": ("15m", "5d"),
-    "30 Minutes (30m)": ("30m", "1mo"),
-    "60 Minutes / 1 Hour (60m)": ("60m", "1mo"),
-    "1 Day / Daily (1d)": ("1d", "1y"),
-    "1 Week / Weekly (1wk)": ("1wk", "2y"),
-    "1 Month / Monthly (1mo)": ("1mo", "5y")
-}
+# ૭. બે અલગ ટેબ્સ (SMC સ્કેનર અને Halal ચેકર)
+tab_smc, tab_halal_checker = st.tabs(["📊 SMC Market Scanner", "🕌 Halal / Haram Checker"])
 
-selected_tf_label = st.sidebar.selectbox("Timeframe (1m thi 1mo):", list(timeframe_options.keys()), index=3)
-timeframe, period = timeframe_options[selected_tf_label]
-
-scan_mode = st.sidebar.radio("Scan Mode:", ["Batch Scan (Slider)", "Badha j Shares (Full 2000+)"])
-
-if scan_mode == "Batch Scan (Slider)":
-    batch_size = st.sidebar.slider("Ketla shares scan karva chhe?", min_value=20, max_value=len(all_symbols), value=100, step=20)
-    symbols_to_scan = all_symbols[:batch_size]
-else:
-    symbols_to_scan = all_symbols
-
-def check_smc(df):
-    if len(df) < 20:
-        return "NEUTRAL", "-", df['Close'].iloc[-1]
-    
-    c_close = df['Close'].iloc[-1]
-    swing_high = df['High'].iloc[-20:-2].max()
-    swing_low = df['Low'].iloc[-20:-2].min()
-    
-    if c_close > swing_high:
-        return "BUY", "BoS Breakout & Demand Zone", c_close
-    elif c_close < swing_low:
-        return "SELL", "BoS Breakdown & Supply Zone", c_close
+# --- ટેબ ૧: SMC સ્કેનર ---
+with tab_smc:
+    st.subheader("📊 ઓટોમેટિક સ્કેન પરિણામો")
+    if not df_results.empty:
+        st.dataframe(df_results, use_container_width=True)
     else:
-        return "WAIT", "Pullback / Range", c_close
+        st.info("કોઈ ડેટા મળ્યો નથી.")
+    
+    if st.button("🔄 ફરીથી ડેટા સ્કેન કરો (Refresh Scanner)"):
+        st.cache_data.clear()
+        st.rerun()
 
-st.write(f"### Timeframe: **{selected_tf_label}** | Scanning **{len(symbols_to_scan)}** Stocks...")
+# --- ટેબ ૨: સ્પેશિયલ Halal / Haram ચેકર ટેબ ---
+with tab_halal_checker:
+    st.subheader("🔍 કોઈ પણ સ્ટોક Halal છે કે Haram તે સર્ચ કરો")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        stock_query = st.text_input("NSE શેરનું નામ નાખો (દા.ત. TATASTEEL, INFY, HDFCBANK, ITC):", value="TCS").strip().upper()
+    with col2:
+        st.write("")
+        st.write("")
+        check_btn = st.button("ચકાસો (Check)")
 
-results = []
-progress_bar = st.progress(0)
-status_text = st.empty()
+    if stock_query:
+        sym_to_check = stock_query if stock_query.endswith(".NS") else f"{stock_query}.NS"
+        try:
+            t = yf.Ticker(sym_to_check)
+            inf = t.info or {}
+            
+            if 'shortName' in inf or 'sector' in inf:
+                stat, reas, sec = check_halal_compliance(inf)
+                stock_title = inf.get('shortName', stock_query)
+                curr_price = inf.get('currentPrice', inf.get('regularMarketPrice', 'N/A'))
+                
+                st.divider()
+                st.write(f"### સ્ટોક: **{stock_title}** ({stock_query})")
+                st.write(f"**LTP:** ₹{curr_price} | **Sector:** {sec}")
 
-for idx, sym in enumerate(symbols_to_scan):
-    ticker = f"{sym}.NS"
-    status_text.text(f"Scanning ({idx + 1}/{len(symbols_to_scan)}): {sym}")
-    try:
-        data = yf.download(ticker, period=period, interval=timeframe, progress=False)
-        if not data.empty:
-            if isinstance(data.columns, pd.MultiIndex):
-                data.columns = [c[0] for c in data.columns]
-            sig, mdl, price = check_smc(data)
-            results.append({
-                "Stock": sym,
-                "Price (₹)": round(float(price), 2),
-                "Signal": sig,
-                "Setup": mdl
-            })
-    except Exception:
-        pass
-    progress_bar.progress((idx + 1) / len(symbols_to_scan))
+                if "Halal" in stat:
+                    st.success(f"### સ્ટેટસ: {stat}\n**વિગત:** {reas}")
+                else:
+                    st.error(f"### સ્ટેટસ: {stat}\n**વિગત:** {reas}")
+            else:
+                st.warning("સ્ટોકની વિગતો મળી નથી, સાચો સિમ્બોલ નાખો.")
+        except Exception as e:
+            st.error(f"ચકાસણીમાં ભૂલ આવી: {e}")
 
-status_text.text("✅ Scanning Complete!")
-
-df_res = pd.DataFrame(results)
-
-filter_option = st.selectbox("Filter:", ["Badha Shares", "Fakt BUY / SELL Signals"])
-
-if filter_option == "Fakt BUY / SELL Signals":
-    display_df = df_res[df_res['Signal'].isin(["BUY", "SELL"])]
-else:
-    display_df = df_res
-
-def color_rows(val):
-    if val == "BUY":
-        return "background-color: #2e7d32; color: white; font-weight: bold;"
-    elif val == "SELL":
-        return "background-color: #c62828; color: white; font-weight: bold;"
-    return "color: gray;"
-
-if not display_df.empty:
-    st.dataframe(display_df.style.map(color_rows, subset=['Signal']), use_container_width=True)
-else:
-    st.info("Koi signal malyu nathi.")
+    st.divider()
+    st.markdown("#### 📋 સ્કેન થયેલા શેર્સનું શરિયા લિસ્ટ:")
+    if not df_results.empty:
+        halal_table = df_results[["Stock", "Shariah Status", "Sector", "Reason"]]
+        st.dataframe(halal_table, use_container_width=True)
