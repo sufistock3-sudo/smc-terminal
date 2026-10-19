@@ -506,7 +506,84 @@ st.divider()
 # 10. Master List Auto-complete
 stock_options_list = [""] + sorted(list(df_master_stocks["Stock"].unique()))
 
-# 11. Tabs Layout
+# 11. 10 Points Fundamental Rating Engine
+def calculate_fundamental_score(final_pe, final_pb, de_ratio, cr, final_roe, final_roa, final_pm, rev_chg_pct, net_chg_pct, final_fcf_val):
+    score = 0
+    breakdown = []
+
+    # 1. P/E Valuation (< 30)
+    if final_pe and 0 < final_pe <= 30:
+        score += 1
+        breakdown.append("✅ 1. P/E Ratio <= 30 (Good Valuation)")
+    else:
+        breakdown.append("❌ 1. P/E Ratio > 30 / Negative (High Valuation)")
+
+    # 2. P/B Ratio (< 3.5)
+    if final_pb and 0 < final_pb <= 3.5:
+        score += 1
+        breakdown.append("✅ 2. Price to Book (P/B) <= 3.5 (Fair Asset Valuation)")
+    else:
+        breakdown.append("❌ 2. High Price to Book Ratio (> 3.5)")
+
+    # 3. Debt-to-Equity (<= 0.5)
+    if de_ratio is not None and de_ratio <= 0.5:
+        score += 1
+        breakdown.append("✅ 3. Debt-to-Equity <= 0.5 (Low / Safe Debt)")
+    else:
+        breakdown.append("❌ 3. High Debt-to-Equity (> 0.5)")
+
+    # 4. Current Ratio (>= 1.3)
+    if cr and cr >= 1.3:
+        score += 1
+        breakdown.append("✅ 4. Current Ratio >= 1.3 (Healthy Working Capital Liquidity)")
+    else:
+        breakdown.append("❌ 4. Low Liquidity (Current Ratio < 1.3)")
+
+    # 5. Return on Equity (>= 15%)
+    if final_roe and final_roe >= 15.0:
+        score += 1
+        breakdown.append("✅ 5. Return on Equity (ROE) >= 15% (Strong Capital Efficiency)")
+    else:
+        breakdown.append("❌ 5. Low ROE (< 15%)")
+
+    # 6. Return on Assets (>= 6%)
+    if final_roa and final_roa >= 6.0:
+        score += 1
+        breakdown.append("✅ 6. Return on Assets (ROA) >= 6% (Efficient Asset Utilisation)")
+    else:
+        breakdown.append("❌ 6. Low ROA (< 6%)")
+
+    # 7. Net Profit Margin (>= 10%)
+    if final_pm and final_pm >= 10.0:
+        score += 1
+        breakdown.append("✅ 7. Net Profit Margin >= 10% (High Profitability)")
+    else:
+        breakdown.append("❌ 7. Low Net Profit Margin (< 10%)")
+
+    # 8. Revenue Growth YoY (>= 8%)
+    if rev_chg_pct is not None and rev_chg_pct >= 8.0:
+        score += 1
+        breakdown.append("✅ 8. Revenue Growth YoY >= 8% (Expanding Top-line Business)")
+    else:
+        breakdown.append("❌ 8. Flat / Negative Revenue Growth (< 8%)")
+
+    # 9. Earnings Growth YoY (>= 8%)
+    if net_chg_pct is not None and net_chg_pct >= 8.0:
+        score += 1
+        breakdown.append("✅ 9. Net Profit Growth YoY >= 8% (Growing Bottom-line Profits)")
+    else:
+        breakdown.append("❌ 9. Negative / Low Earnings Growth (< 8%)")
+
+    # 10. Free Cash Flow (> 0)
+    if final_fcf_val and final_fcf_val > 0:
+        score += 1
+        breakdown.append("✅ 10. Positive Free Cash Flow (Actual Cash Generation)")
+    else:
+        breakdown.append("❌ 10. Negative Free Cash Flow / Cash Burn")
+
+    return max(1, min(10, score)), breakdown
+
+# 12. Tabs Layout
 tab_smc, tab_halal_checker, tab_events, tab_news, tab_fundamentals = st.tabs([
     "📊 Live Scanner & Top Gainers", 
     "🕌 5000+ Shariah Directory", 
@@ -739,7 +816,7 @@ with tab_news:
     else:
         st.info("Hal koi news maliya nathi.")
 
-# --- Tab 5: DEEP FUNDAMENTALS WITH DYNAMIC REAL DELTA (% CHANGE) ---
+# --- Tab 5: DEEP FUNDAMENTALS WITH RATING SCORE & INFO MODAL ---
 with tab_fundamentals:
     st.subheader("📈 Deep Fundamental Analysis (Pehla karta vadhe to 🟢 | Ghate to 🔴)")
     
@@ -747,7 +824,7 @@ with tab_fundamentals:
     with f_col1:
         default_idx = stock_options_list.index("RELIANCE") if "RELIANCE" in stock_options_list else 0
         fund_stock = st.selectbox(
-            "Stock Pasando Karo (Fundamentals & Deep Analysis):",
+            "Stock Pasando Karo (Fundamentals & 1-10 Rating):",
             options=stock_options_list,
             index=default_idx
         )
@@ -758,7 +835,7 @@ with tab_fundamentals:
 
     if fund_stock:
         clean_name = fund_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_name} na audited statements ane real delta calculations load thai rahya chhe..."):
+        with st.spinner(f"⏳ {clean_name} na audited statements ane rating calculations load thai rahya chhe..."):
             t_obj = None
             inf = {}
             bs_df = pd.DataFrame()
@@ -881,22 +958,20 @@ with tab_fundamentals:
                 final_fcf_val = inf.get('freeCashflow') or calc_fcf
                 final_ocf_val = inf.get('operatingCashflow') or calc_ocf
 
-                # ==================== DELTA CALCULATIONS (PEHLA KARTA KETLU VADHYU/GHATYU) ====================
-                # Revenue Change %
+                # YoY Growth Rates Calculations
                 rev_chg_pct = None
                 if inf.get('revenueGrowth') is not None:
                     rev_chg_pct = round(inf.get('revenueGrowth') * 100, 2)
                 elif calc_prev_rev and calc_prev_rev > 0:
                     rev_chg_pct = round(((calc_rev - calc_prev_rev) / calc_prev_rev) * 100, 2)
 
-                # Net Profit Change %
                 net_chg_pct = None
                 if inf.get('earningsGrowth') is not None:
                     net_chg_pct = round(inf.get('earningsGrowth') * 100, 2)
                 elif calc_prev_net and calc_prev_net != 0:
                     net_chg_pct = round(((calc_net - calc_prev_net) / abs(calc_prev_net)) * 100, 2)
 
-                # Valuation Ratios Calculations & Deltas (Clean Round 2 Decimals)
+                # Valuation Ratios Calculations & Deltas
                 final_pe = inf.get('trailingPE')
                 if not final_pe and mcap > 0 and final_net > 0:
                     final_pe = round(mcap / final_net, 2)
@@ -917,10 +992,8 @@ with tab_fundamentals:
 
                 fpe_val = round(inf.get('forwardPE', 0), 2) if inf.get('forwardPE') else None
                 fpe_delta_pct = round(((fpe_val - final_pe) / final_pe) * 100, 2) if (fpe_val and final_pe and final_pe > 0) else None
-
                 peg_val = round(inf.get('pegRatio', 0), 2) if inf.get('pegRatio') else None
 
-                # Balance Sheet Deltas
                 debt_delta_pct = round(((final_debt - calc_prev_debt) / calc_prev_debt) * 100, 2) if (calc_prev_debt and calc_prev_debt > 0) else None
                 cash_delta_pct = round(((final_cash - calc_prev_cash) / calc_prev_cash) * 100, 2) if (calc_prev_cash and calc_prev_cash > 0) else None
 
@@ -943,7 +1016,6 @@ with tab_fundamentals:
                 fcf_delta_pct = round(((final_fcf_val - calc_prev_fcf) / abs(calc_prev_fcf)) * 100, 2) if calc_prev_fcf != 0 else None
                 ocf_delta_pct = round(((final_ocf_val - calc_prev_ocf) / abs(calc_prev_ocf)) * 100, 2) if calc_prev_ocf != 0 else None
 
-                # Profitability Deltas
                 final_roe = inf.get('returnOnEquity')
                 if not final_roe and final_net and calc_equity:
                     final_roe = round((final_net / calc_equity) * 100, 2)
@@ -983,7 +1055,66 @@ with tab_fundamentals:
                 st.markdown(f"### 🏢 **{inf.get('longName', clean_name)}** (LTP: ₹{curr_price})")
                 st.caption(f"Sector: **{inf.get('sector', 'N/A')}** | Industry: **{inf.get('industry', 'N/A')}** | Market Cap: **₹{mcap_cr_val:,} Cr**")
 
-                # ==================== 1. TTM & GROWTH (VADHE = 🟢 | GHATE = 🔴) ====================
+                # ==================== ૧ થી ૧૦ RATING SCORE & INFO SECTION ====================
+                score, score_breakdown = calculate_fundamental_score(
+                    final_pe, final_pb, de_ratio, cr, final_roe, final_roa, final_pm, rev_chg_pct, net_chg_pct, final_fcf_val
+                )
+
+                if score >= 8:
+                    verdict = "Strong Buy / Excellent 🟢"
+                    score_color = "#00c853"
+                elif score >= 5:
+                    verdict = "Moderate / Neutral 🟡"
+                    score_color = "#ffd600"
+                else:
+                    verdict = "Weak / High Risk 🔴"
+                    score_color = "#ff3d00"
+
+                st.markdown("---")
+                sc_col1, sc_col2 = st.columns([2, 5])
+                with sc_col1:
+                    st.metric(
+                        label="⭐ 1 to 10 Fundamental Rating",
+                        value=f"{score} / 10",
+                        delta=verdict,
+                        delta_color="normal"
+                    )
+                with sc_col2:
+                    st.write(f"**Overall Health Verdict:** <span style='color:{score_color}; font-size:18px; font-weight:bold;'>{verdict}</span>", unsafe_allow_html=True)
+                    st.progress(score / 10.0)
+
+                # ==================== INFO / EXPLAINER GUIDE EXPANDER ====================
+                with st.expander("ℹ️ 10 Points Rating Framework & Rating Scale ni Mahiti (Info Guide)", expanded=False):
+                    st.markdown("""
+                    ### 🎯 10 Points Fundamental Framework Kevi Rite Kaam Kare Chhe?
+                    Aa rating system company na 5 mukhya stambh (Valuation, Debt, Liquidity, Profitability, ane Growth) par aadharit chhe. Darek criteria pass thaye **+1 Point** male chhe:
+
+                    1. **P/E Ratio <= 30**: Valuation sasta ane fair range ma hoy (+1 Point)
+                    2. **P/B Ratio <= 3.5**: Assets/Book value na aadhare share expensive na hoy (+1 Point)
+                    3. **Debt-to-Equity <= 0.5**: Company par karjo khub j ochho hoy athva Debt Free hoy (+1 Point)
+                    4. **Current Ratio >= 1.3**: Rojinda kharch ane working capital mate liquidity majboot hoy (+1 Point)
+                    5. **ROE >= 15%**: Shareholder na bhandol par 15% thi vadhare munfo kamati hoy (+1 Point)
+                    6. **ROA >= 6%**: Company potani sampatti (Assets) no sacho upyog kare chhe (+1 Point)
+                    7. **Net Profit Margin >= 10%**: Kharch vadharva chhatav majboot shuddh munfo bache chhe (+1 Point)
+                    8. **Revenue Growth YoY >= 8%**: Company no business varshik dhorane vadhi rahyo chhe (+1 Point)
+                    9. **Earnings Growth YoY >= 8%**: Company no shuddh munfo pan varshik vadhe chhe (+1 Point)
+                    10. **Positive Free Cash Flow**: Business actual haath ma rokda (Cash) generate kare chhe (+1 Point)
+
+                    ---
+                    ### ⚖️ Rating Scale Verdict Guide:
+                    - 🟢 **8 thi 10 / 10 (Strong Buy / Excellent)**: Khub j majboot balance sheet, zero/low debt ane consistent growth wali safe company.
+                    - 🟡 **5 thi 7 / 10 (Moderate / Neutral)**: Average fundamentals, jema thodo debt athva growth thobhi gayeli hoy sake.
+                    - 🔴 **1 thi 4 / 10 (Weak / High Risk)**: High debt, loss-making athva khub j expensive valuation wali jokhami company.
+                    """)
+                    
+                    st.divider()
+                    st.markdown(f"#### 📋 **{clean_name}** nu 10 Points Checklist Score Card:")
+                    for item in score_breakdown:
+                        st.write(item)
+
+                st.markdown("---")
+
+                # ==================== 1. TTM & GROWTH ====================
                 st.markdown("#### 1️⃣ TTM Performance & Growth Rates (Pehla karta vadhe = 🟢 | Ghate = 🔴)")
                 g1, g2, g3, g4 = st.columns(4)
 
@@ -1016,7 +1147,7 @@ with tab_fundamentals:
                     delta_color="normal"
                 )
 
-                # ==================== 2. VALUATION RATIOS (VADHE = 🟢 | GHATE = 🔴) ====================
+                # ==================== 2. VALUATION RATIOS ====================
                 st.markdown("#### 2️⃣ Valuation Ratios (Vadhe = 🟢 | Ghate = 🔴)")
                 v1, v2, v3, v4 = st.columns(4)
 
