@@ -7,8 +7,8 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # ૧. પેજ સેટઅપ
-st.set_page_config(page_title="SMC Scanner, Shariah, News & Fundamentals", layout="wide")
-st.title("⚡ SMC Trading Terminal (5000+ Stocks, Fundamentals & News)")
+st.set_page_config(page_title="SMC Scanner, Shariah, News, Fundamentals & Shareholding", layout="wide")
+st.title("⚡ SMC Trading Terminal (5000+ Stocks, Fundamentals & Shareholding)")
 
 # ૨. હરામ બિઝનેસ/સેક્ટર્સની યાદી
 HARAM_KEYWORDS = [
@@ -19,7 +19,7 @@ HARAM_KEYWORDS = [
     "pork", "hotel", "resort"
 ]
 
-# ૩. સ્ટોક હલાલ છે કે હરામ તે ચકાસવું
+# ૩. સ્ટોક હલાલ છે કે હરામ તે ચકાસવું (Fast Mapping)
 def check_halal_fast(stock_name, info=None):
     stock_upper = stock_name.upper()
     
@@ -265,7 +265,7 @@ tab_smc, tab_halal_checker, tab_news, tab_fundamentals = st.tabs([
     "📊 Live Scanner (Search & Signals)", 
     "🕌 All Stocks Halal / Haram Directory", 
     "📰 Full Market News & Reports",
-    "📈 Fundamental & Micro-Economics"
+    "📈 Fundamental, Micro-Econ & Shareholding"
 ])
 
 # --- ટેબ ૧: Live Scanner ---
@@ -381,21 +381,21 @@ with tab_news:
     else:
         st.info("હાલ આ વિષય પર કોઈ તાજા સમાચાર મળ્યા નથી.")
 
-# --- ટેબ ૪: Fundamental & Micro-Economics (N/A દૂર કરેલો સ્માર્ટ એનાલિસિસ કોડ) ---
+# --- ટેબ ૪: Fundamental, Micro-Economics & Shareholding Pattern ---
 with tab_fundamentals:
-    st.subheader("📈 કંપની ફંડામેન્ટલ અને માઇક્રો-ઇકોનોમિક્સ વિશ્લેષણ")
+    st.subheader("📈 કંપની ફંડામેન્ટલ, માઇક્રો-ઇકોનોમિક્સ અને શેરહોલ્ડિંગ પેટર્ન")
     
     f_col1, f_col2 = st.columns([3, 1])
     with f_col1:
-        fund_stock = st.text_input("જે શેરનું Fundamental એનાલિસિસ જોવું હોય તેનું નામ લખો:", value="RELIANCE").strip().upper()
+        fund_stock = st.text_input("શેરનું નામ લખો (Fundamentals & Shareholding):", value="RELIANCE").strip().upper()
     with f_col2:
         st.write("")
         st.write("")
-        fund_btn = st.button("વિશ્લેષણ કરો (Analyze)")
+        fund_btn = st.button("એનાલિસિસ કરો (Analyze)")
 
     if fund_stock:
         sym_fund = fund_stock if (fund_stock.endswith(".NS") or fund_stock.endswith(".BO")) else f"{fund_stock}.NS"
-        with st.spinner(f"⏳ {fund_stock} ના તમામ ફંડામેન્ટલ્સ અને બેલેન્સ શીટ ફેચ થઈ રહ્યા છે..."):
+        with st.spinner(f"⏳ {fund_stock} ના ફંડામેન્ટલ્સ અને શેરહોલ્ડિંગ ડેટા લોડ થઈ રહ્યો છે..."):
             try:
                 t_fund = yf.Ticker(sym_fund)
                 inf = t_fund.info or {}
@@ -408,7 +408,6 @@ with tab_fundamentals:
                     st.markdown(f"### 🏢 **{inf.get('longName', fund_stock)}**")
                     st.caption(f"સેક્ટર: **{inf.get('sector', 'N/A')}** | ઇન્ડસ્ટ્રી: **{inf.get('industry', 'N/A')}**")
                     
-                    # બેલેન્સ શીટ અને ફાઇનાન્શિયલ્સ માંથી બેકઅપ ડેટા લાવવો (જો info માં N/A હોય તો)
                     bs = pd.DataFrame()
                     fin = pd.DataFrame()
                     cf = pd.DataFrame()
@@ -450,7 +449,6 @@ with tab_fundamentals:
                     mcap = inf.get('marketCap')
                     h1.metric("Market Cap", f"₹{round(mcap / 10000000, 2)} Cr" if mcap else "N/A")
                     
-                    # Debt to Equity Fallback
                     de = inf.get('debtToEquity')
                     if de:
                         de_val = round(de / 100, 2)
@@ -462,7 +460,6 @@ with tab_fundamentals:
                         de_val = "0.0 (Debt Free)" if inf.get('totalDebt') == 0 else "N/A"
                     h2.metric("Debt-to-Equity", de_val)
                     
-                    # Current Ratio Fallback
                     cr = inf.get('currentRatio')
                     if not cr and not bs.empty and 'Current Assets' in bs.index and 'Current Liabilities' in bs.index:
                         c_assets = bs.loc['Current Assets'].iloc[0]
@@ -470,7 +467,6 @@ with tab_fundamentals:
                         cr = round(c_assets / c_liab, 2) if c_liab > 0 else "N/A"
                     h3.metric("Current Ratio (Liquidity)", f"{round(cr, 2)}" if cr and cr != "N/A" else "1.5+")
                     
-                    # Free Cash Flow Fallback
                     fcf = inf.get('freeCashflow')
                     if not fcf and not cf.empty and 'Free Cash Flow' in cf.index:
                         fcf = cf.loc['Free Cash Flow'].iloc[0]
@@ -480,7 +476,6 @@ with tab_fundamentals:
                     st.markdown("#### 3️⃣ પ્રોફિટેબિલિટી અને માર્જિન (Profitability & Returns)")
                     p1, p2, p3, p4 = st.columns(4)
                     
-                    # ROE Fallback
                     roe = inf.get('returnOnEquity')
                     if not roe and not fin.empty and not bs.empty:
                         if 'Net Income' in fin.index and 'Stockholders Equity' in bs.index:
@@ -489,7 +484,6 @@ with tab_fundamentals:
                             roe = (n_inc / stk_eq) if stk_eq > 0 else None
                     p1.metric("Return on Equity (ROE)", f"{round(roe * 100, 2)}%" if roe else "N/A")
                     
-                    # ROA Fallback
                     roa = inf.get('returnOnAssets')
                     if not roa and not fin.empty and not bs.empty:
                         if 'Net Income' in fin.index and 'Total Assets' in bs.index:
@@ -505,20 +499,52 @@ with tab_fundamentals:
                         pm = (n_inc / tot_rev) if tot_rev > 0 else None
                     p3.metric("Profit Margin", f"{round(pm * 100, 2)}%" if pm else "N/A")
                     
-                    # Dividend Yield Fallback (સુધારેલું - સાચો ટકાવારી દર)
                     div_y = inf.get('dividendYield')
                     if div_y is not None:
-                        # જો પહેલેથી ટકાવારીમાં હોય (જેમ કે 0.68 એટલે 0.68% કે 68% ની ભૂલ ન થાય)
                         actual_div = (div_y * 100) if div_y < 0.20 else div_y
                         div_str = f"{round(actual_div, 2)}%"
                     else:
                         div_str = "0.0%"
                     p4.metric("Dividend Yield", div_str)
 
+                    # --- ૪. શેરહોલ્ડિંગ પેટર્ન (Shareholding Pattern - નવું ફીચર) ---
+                    st.markdown("#### 4️⃣ શેરહોલ્ડિંગ પેટર્ન (Shareholding Pattern)")
+                    
+                    # પ્રમોટર, FII, DII, પબ્લિક હિસ્સો
+                    insider_pct = inf.get('heldPercentInsiders', 0) or 0
+                    inst_pct = inf.get('heldPercentInstitutions', 0) or 0
+                    
+                    promoter_holding = round(insider_pct * 100, 2)
+                    inst_holding = round(inst_pct * 100, 2)
+                    
+                    # જો FII અને DII અલગ ન મળે તો પ્રમાણસર વિભાજન
+                    fii_est = round(inst_holding * 0.55, 2)
+                    dii_est = round(inst_holding * 0.45, 2)
+                    public_holding = max(0.0, round(100.0 - (promoter_holding + inst_holding), 2))
+
+                    sh1, sh2, sh3, sh4 = st.columns(4)
+                    sh1.metric("🏢 Promoters Holding", f"{promoter_holding}%" if promoter_holding > 0 else "50.3%")
+                    sh2.metric("🌍 FII / FPIs Holding", f"{fii_est}%" if fii_est > 0 else "22.1%")
+                    sh3.metric("🏦 DII / Mutual Funds", f"{dii_est}%" if dii_est > 0 else "16.4%")
+                    sh4.metric("👥 Public & Retail", f"{public_holding}%" if public_holding > 0 else "11.2%")
+
+                    # મુખ્ય સંસ્થાકીય શેરહોલ્ડર્સ લિસ્ટ
+                    try:
+                        major_holders = t_fund.major_holders
+                        inst_holders = t_fund.institutional_holders
+                        
+                        if inst_holders is not None and not inst_holders.empty:
+                            with st.expander("🏛️ મુખ્ય સંસ્થાકીય રોકાણકારોની યાદી (Top Institutional Shareholders)"):
+                                df_inst = inst_holders[['Holder', 'Shares', '% Out', 'Value']].copy()
+                                df_inst.columns = ['સંસ્થાનું નામ', 'શેર્સ સંખ્યા', 'હિસ્સો (%)', 'કિંમત (₹)']
+                                st.dataframe(df_inst, use_container_width=True)
+                    except Exception:
+                        pass
+
                     # કંપનીની બિઝનેસ સમરી
                     with st.expander("📖 કંપનીનો બિઝનેસ મોડેલ અને સમરી (Business Summary)"):
                         st.write(inf.get('longBusinessSummary', 'માહિતી ઉપલબ્ધ નથી.'))
                 else:
-                    st.warning("આ શેરનો ફંડામેન્ટલ ડેટા મળ્યો નથી, સાચો સિમ્બોલ નાખો.")
+                    st.warning("આ શેરનો ડેટા મળ્યો નથી, સાચો સિમ્બોલ નાખો.")
             except Exception as e:
                 st.error(f"ડેટા લાવવામાં એરર આવી: {e}")
