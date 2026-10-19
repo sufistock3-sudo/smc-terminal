@@ -7,10 +7,10 @@ import requests
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-# 1. Page Setup
-st.set_page_config(page_title="SMC Terminal - 5000+ Stocks & Technical Analysis", layout="wide")
+# ૧. પેજ સેટઅપ
+st.set_page_config(page_title="SMC Terminal - 5000+ Stocks & Corporate Events", layout="wide")
 
-# Custom Session
+# કસ્ટમ સેશન
 @st.cache_resource
 def get_custom_session():
     session = requests.Session()
@@ -21,7 +21,7 @@ def get_custom_session():
 
 session = get_custom_session()
 
-# ==================== 1. Fixed Scrolling Marquee (Indices) ====================
+# ==================== ૧. Fixed Scrolling Marquee (Indices) ====================
 @st.cache_data(ttl=60)
 def get_live_ticker_indices():
     indices = {
@@ -113,7 +113,7 @@ st.markdown(ticker_component, unsafe_allow_html=True)
 
 st.title("⚡ SMC Smart Money Trading Terminal (NSE & BSE 5000+ Stocks)")
 
-# 2. Strict Haram Keywords
+# ૨. હરામ બિઝનેસ/સેક્ટર્સની યાદી
 HARAM_KEYWORDS = [
     "bank", "finance", "housing finance", "insurance", "capital", "financial",
     "brewery", "distilleries", "liquor", "spirits", "alcohol", "wine", "beer",
@@ -122,7 +122,7 @@ HARAM_KEYWORDS = [
     "pork", "hotel", "resort"
 ]
 
-# 3. Shariah Screening Function
+# ૩. શરિયા સ્ક્રીનિંગ ફંક્શન
 def check_halal_accurate(stock_name, info=None):
     stock_upper = stock_name.upper()
     
@@ -151,7 +151,7 @@ def check_halal_accurate(stock_name, info=None):
 
     return "✅ Halal", "Shariah Compliant", "Manufacturing / Tech / Services"
 
-# 4. Master 5,000+ Stocks List
+# ૪. તમામ ૫,૦૦૦+ શેર્સનું માસ્ટર લિસ્ટ
 @st.cache_data(ttl=86400)
 def get_all_nse_bse_symbols():
     symbols_dict = []
@@ -207,7 +207,7 @@ def get_all_nse_bse_symbols():
 
     return df_all.drop_duplicates(subset=['Symbol'])
 
-# ==================== Sectors Performance ====================
+# ==================== સેક્ટર્સ પર્ફોર્મન્સ ====================
 @st.cache_data(ttl=60)
 def get_all_sector_performance():
     sectors_map = {
@@ -253,7 +253,7 @@ def get_all_sector_performance():
         ]
     return pd.DataFrame(sector_data)
 
-# 5. SMC Market Structure Logic
+# ૫. SMC માર્કેટ સ્ટ્રક્ચર લોજિક
 def check_smc_structure_only(df):
     if len(df) < 15:
         return "No Setup", 0.0, 0.0
@@ -277,12 +277,8 @@ def check_smc_structure_only(df):
 
     return status, round(last_close, 2), round(day_pct_change, 2)
 
-# ==================== ADVANCED SMC STRUCTURE EVALUATOR (PINE SCRIPT ENGINE LOGIC) ====================
+# ==================== ADVANCED SMC STRUCTURE EVALUATOR ====================
 def evaluate_smc_timeframe_structure(df):
-    """
-    Evaluates True SMC Market Structure (Bullish/Up, Bearish/Down, Sideways)
-    using Two-candle, Engulfing, Inside-bar breakouts, Swing Points, BoS and MsS logic.
-    """
     if df is None or len(df) < 20:
         return {
             "Structure": "INSUFFICIENT DATA ⚪",
@@ -298,13 +294,11 @@ def evaluate_smc_timeframe_structure(df):
     closes = df['Close'].values
     opens = df['Open'].values
 
-    # Track Trend: 1 = Bullish, -1 = Bearish
     trend = 1 if closes[-1] >= opens[0] else -1
     swing_high = float(max(highs[-15:-1]))
     swing_low = float(min(lows[-15:-1]))
     current_close = float(closes[-1])
 
-    # Strict Retracement Engine Rules:
     is_bull = closes[-1] > opens[-1]
     is_bear = closes[-1] < opens[-1]
     two_candle_down = (closes[-2] < opens[-2]) and is_bear and (current_close < lows[-2])
@@ -323,7 +317,6 @@ def evaluate_smc_timeframe_structure(df):
         trend = 1
         note = "Bullish Retracement Confirmed"
     else:
-        # Check Inside Bar / Consolidation
         if highs[-1] < highs[-2] and lows[-1] > lows[-2]:
             note = "Inside Bar / Consolidation Range"
         else:
@@ -352,7 +345,7 @@ def evaluate_smc_timeframe_structure(df):
         "Signal Note": note
     }
 
-# Worker for ThreadPool
+# સિંગલ સ્ટોક સ્કેનર વર્કર
 def scan_single_stock(args):
     row_data, interval, period = args
     sym = row_data["Symbol"]
@@ -371,7 +364,6 @@ def scan_single_stock(args):
                 "Stock": stock_name,
                 "Company Name": company_name,
                 "Market": market,
-                "Timeframe": interval,
                 "LTP (₹)": ltp,
                 "Daily Change (%)": pct_change,
                 "SMC Setup": smc_status,
@@ -383,7 +375,7 @@ def scan_single_stock(args):
         pass
     return None
 
-# 6. Pre-scan Engine
+# ૬. સ્કેનર રન કરવું (ડિફોલ્ટ 1D ટાઇમફ્રેમ)
 @st.cache_data(ttl=300)
 def run_pre_scan(interval="1d", period="3mo", scan_limit=300):
     df_all_symbols = get_all_nse_bse_symbols()
@@ -402,7 +394,7 @@ def run_pre_scan(interval="1d", period="3mo", scan_limit=300):
 
     return pd.DataFrame(results), total_count, df_all_symbols
 
-# 7. Detailed News
+# ૭. વિગતવાર સમાચાર
 @st.cache_data(ttl=600)
 def fetch_detailed_news(query="^NSEI"):
     try:
@@ -431,7 +423,7 @@ def fetch_detailed_news(query="^NSEI"):
     except Exception:
         return []
 
-# 8. Events Data
+# ૮. ઈવેન્ટ્સ ડેટા (Results, Dividends, Splits, Bonus, AGM)
 @st.cache_data(ttl=3600)
 def fetch_categorized_events(sample_stocks):
     results_list = []
@@ -522,39 +514,11 @@ def fetch_categorized_events(sample_stocks):
         pd.DataFrame(agm_list).drop_duplicates().sort_values(by="AGM / EGM Date", ascending=True)
     )
 
-# --- Timeframe Selector ---
-tf_col1, tf_col2 = st.columns([3, 5])
-with tf_col1:
-    selected_tf = st.selectbox(
-        "⏱️ Timeframe Pasando Karo (1m to 1 Month):",
-        [
-            "1 Minute (1m)", "2 Minute (2m)", "5 Minute (5m)", 
-            "15 Minute (15m)", "30 Minute (30m)", "1 Hour (60m)", 
-            "90 Minute (90m)", "1 Day (1d)", "1 Week (1wk)", "1 Month (1mo)"
-        ],
-        index=7
-    )
+# ૯. ડેટા ફેચિંગ (ડિફોલ્ટ 1D ટાઇમફ્રેમ)
+with st.spinner("⏳ માર્કેટ સ્કેન થઈ રહ્યું છે..."):
+    df_results, total_listed_stocks, df_master_stocks = run_pre_scan(interval="1d", period="3mo", scan_limit=300)
 
-tf_mapping = {
-    "1 Minute (1m)": ("1m", "1d"),
-    "2 Minute (2m)": ("2m", "1d"),
-    "5 Minute (5m)": ("5m", "5d"),
-    "15 Minute (15m)": ("15m", "5d"),
-    "30 Minute (30m)": ("30m", "1mo"),
-    "1 Hour (60m)": ("60m", "1mo"),
-    "90 Minute (90m)": ("90m", "1mo"),
-    "1 Day (1d)": ("1d", "3mo"),
-    "1 Week (1wk)": ("1wk", "1y"),
-    "1 Month (1mo)": ("1mo", "5y")
-}
-
-chosen_interval, chosen_period = tf_mapping[selected_tf]
-
-# Load Data
-with st.spinner(f"⏳ {selected_tf} par market scan thai rahyu chhe..."):
-    df_results, total_listed_stocks, df_master_stocks = run_pre_scan(interval=chosen_interval, period=chosen_period, scan_limit=300)
-
-# Shariah Master Full
+# શરિયા માસ્ટર
 @st.cache_data(ttl=86400)
 def generate_shariah_master(df_master):
     df_temp = df_master.copy()
@@ -567,18 +531,16 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Halal")])
 
-# 9. Top Metrics
-m_col1, m_col2, m_col3 = st.columns(3)
+# ૧૦. મેટ્રિક્સ કાર્ડ્સ (ટાઈમફ્રેમ કાર્ડ હટાવીને ફક્ત ૨ મુખ્ય મેટ્રિક્સ રાખ્યા છે)
+m_col1, m_col2 = st.columns(2)
 with m_col1:
     st.metric(label="🇮🇳 Total Listed Stocks", value=f"{total_listed_stocks}+")
 with m_col2:
     st.metric(label="✅ Total Halal Stocks (Master)", value=f"{total_halal_count}+")
-with m_col3:
-    st.metric(label="⏱️ Active Timeframe", value=chosen_interval)
 
 st.divider()
 
-# 10. Master Auto-complete List
+# ૧૧. Master Auto-complete List
 stock_display_options = [""] + sorted(list(df_master_stocks["Display_Name"].dropna().unique()))
 
 def get_symbol_from_display(disp_name):
@@ -586,7 +548,7 @@ def get_symbol_from_display(disp_name):
         return ""
     return disp_name.split(" - ")[0].strip()
 
-# 11. 10 Points Fundamental Rating Engine
+# ૧૨. ૧૦ પોઇન્ટ્સ ફંડામેન્ટલ રેટિંગ એન્જિન
 def calculate_fundamental_score(final_pe, final_pb, de_ratio, cr, final_roe, final_roa, final_pm, rev_chg_pct, net_chg_pct, final_fcf_val):
     score = 0
     breakdown = []
@@ -653,7 +615,7 @@ def calculate_fundamental_score(final_pe, final_pb, de_ratio, cr, final_roe, fin
 
     return max(1, min(10, score)), breakdown
 
-# 12. Main Tabs Layout (Navu Technical Analysis Session Tab sathe)
+# ૧૩. મુખ્ય ટેબ્સ લેઆઉટ
 tab_smc, tab_technical, tab_halal_checker, tab_events, tab_news, tab_fundamentals = st.tabs([
     "📊 Live Scanner & Top Gainers", 
     "📐 Technical Analysis (SMC Structure)",
@@ -663,9 +625,9 @@ tab_smc, tab_technical, tab_halal_checker, tab_events, tab_news, tab_fundamental
     "📈 Deep Fundamental, TTM, Balance Sheet & Growth"
 ])
 
-# --- Tab 1: Live Scanner & Daily Top Gainers ---
+# --- ટેબ ૧: Live Scanner & Daily Top Gainers ---
 with tab_smc:
-    st.subheader("🚀 Daily Top Gainers (Aaj na sauthi vadhu vadhela shares)")
+    st.subheader("🚀 Daily Top Gainers (આજના સૌથી વધુ વધેલા શેર્સ)")
     
     if not df_results.empty:
         top_gainers_df = df_results.sort_values(by="Daily Change (%)", ascending=False).head(8)
@@ -680,7 +642,7 @@ with tab_smc:
                     delta=f"+{row['Daily Change (%)']}%"
                 )
                 
-        with st.expander("📋 Top Gainers nu aakhu list juo", expanded=False):
+        with st.expander("📋 Top Gainers નું આખું લિસ્ટ જુઓ", expanded=False):
             st.dataframe(
                 top_gainers_df[["Stock", "Company Name", "Market", "LTP (₹)", "Daily Change (%)", "SMC Setup", "Shariah Status"]],
                 use_container_width=True
@@ -702,32 +664,32 @@ with tab_smc:
                     delta=f"{sign_str}{s_row['Change']} ({sign_str}{s_row['Change (%)']}%)"
                 )
 
-        with st.expander("📋 Badha 10+ Sectors nu Live list ane Gain/Loss table", expanded=False):
+        with st.expander("📋 બધા 10+ Sectors નું Live લિસ્ટ અને Gain/Loss ટેબલ", expanded=False):
             st.dataframe(df_sectors, use_container_width=True)
             
     st.markdown("---")
 
-    st.subheader(f"📊 Market Scanner ane Filters ({selected_tf})")
+    st.subheader("📊 Market Scanner અને Filters")
     s_col1, s_col2, s_col3 = st.columns([2, 1, 1])
     
     with s_col1:
         search_disp = st.selectbox(
-            "🔍 Stock athva Company nu naam shodhvo:",
+            "🔍 Stock અથવા કંપનીનું નામ શોધો:",
             options=stock_display_options,
             index=0
         )
         search_term = get_symbol_from_display(search_disp)
 
     with s_col2:
-        market_filter = st.selectbox("Market:", ["Badha (NSE + BSE)", "NSE", "BSE"])
+        market_filter = st.selectbox("Market:", ["બંને (NSE + BSE)", "NSE", "BSE"])
     with s_col3:
-        halal_filter = st.selectbox("Shariah:", ["Badha (All)", "✅ Matra Halal", "❌ Matra Haram"])
+        halal_filter = st.selectbox("Shariah:", ["બધા (All)", "✅ માત્ર Halal", "❌ માત્ર Haram"])
 
     filtered_df = df_results.copy()
     if not filtered_df.empty:
         if search_term:
             filtered_df = filtered_df[filtered_df['Stock'] == search_term]
-        if market_filter != "Badha (NSE + BSE)":
+        if market_filter != "બંને (NSE + BSE)":
             filtered_df = filtered_df[filtered_df['Market'] == market_filter]
         if "Halal" in halal_filter:
             filtered_df = filtered_df[filtered_df['Shariah Status'].str.contains("Halal")]
@@ -736,16 +698,16 @@ with tab_smc:
             
         st.dataframe(filtered_df, use_container_width=True)
     else:
-        st.info("Koi data maliyo nathi.")
+        st.info("કોઈ ડેટા મળ્યો નથી.")
     
-    if st.button("🔄 Rescan Current Timeframe"):
+    if st.button("🔄 ફરીથી ડેટા સ્કેન કરો (Refresh Scanner)"):
         st.cache_data.clear()
         st.rerun()
 
-# ==================== TAB 2: NAVU TECHNICAL ANALYSIS (MULTI-TIMEFRAME SMC STRUCTURE) ====================
+# ==================== ટેબ ૨: TECHNICAL ANALYSIS (MULTI-TIMEFRAME SMC STRUCTURE) ====================
 with tab_technical:
     st.subheader("📐 Technical Analysis - SMC Multi-Timeframe Market Structure")
-    st.caption("Aa section ma H1, H4, Daily, Weekly ane Monthly ma market structure UP/Bullish chhe k DOWN/Bearish chhe te Pine Script engine na strict retracement rules sathe live joi sakay chhe.")
+    st.caption("અહીં H1, H4, Daily, Weekly અને Monthly માં માર્કેટ સ્ટ્રક્ચર UP/Bullish છે કે DOWN/Bearish છે તે Pine Script એન્જિનના નિયમો સાથે લાઈવ જોઈ શકાય છે.")
 
     t_col1, t_col2 = st.columns([3, 1])
     with t_col1:
@@ -755,7 +717,7 @@ with tab_technical:
                 def_t_idx = i
                 break
         tech_disp = st.selectbox(
-            "Stock Pasando Karo (Technical Multi-TF Structure):",
+            "Stock પસંદ કરો (Technical Multi-TF Structure):",
             options=stock_display_options,
             index=def_t_idx,
             key="tech_stock_search"
@@ -768,14 +730,11 @@ with tab_technical:
 
     if tech_stock:
         clean_tech = tech_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_tech} na H1, H4, Daily, Weekly ane Monthly SMC structures evaluate thai rahya chhe..."):
+        with st.spinner(f"⏳ {clean_tech} ના H1, H4, Daily, Weekly અને Monthly SMC structures evaluate થઈ રહ્યા છે..."):
             target_sym = f"{clean_tech}.NS"
             t_obj = yf.Ticker(target_sym, session=session)
 
-            # Fetch multi-timeframe candle datasets
-            # H1 (60m)
             df_h1 = t_obj.history(period="1mo", interval="60m")
-            # H4: Resample 60m data to 4h
             df_h4 = pd.DataFrame()
             if not df_h1.empty and len(df_h1) >= 4:
                 try:
@@ -789,14 +748,10 @@ with tab_technical:
                 except Exception:
                     df_h4 = pd.DataFrame()
 
-            # Daily (1d)
             df_daily = t_obj.history(period="1y", interval="1d")
-            # Weekly (1wk)
             df_weekly = t_obj.history(period="3y", interval="1wk")
-            # Monthly (1mo)
             df_monthly = t_obj.history(period="5y", interval="1mo")
 
-            # Evaluate each structure
             res_h1 = evaluate_smc_timeframe_structure(df_h1)
             res_h4 = evaluate_smc_timeframe_structure(df_h4 if not df_h4.empty else df_h1)
             res_daily = evaluate_smc_timeframe_structure(df_daily)
@@ -806,38 +761,36 @@ with tab_technical:
             st.markdown(f"### 🏢 **{clean_tech}** SMC Multi-Timeframe Structure Dashboard")
             st.write("---")
 
-            # Top Structure Cards (H1, H4, Daily, Weekly, Monthly)
             st.markdown("#### ⚡ Timeframe Wise SMC Trend Structure:")
             c1, c2, c3, c4, c5 = st.columns(5)
 
             with c1:
-                st.markdown(f"**⏱️ 1 Hour (H1):**")
+                st.markdown("**⏱️ 1 Hour (H1):**")
                 st.markdown(f"<h4 style='color:{res_h1['Color']};'>{res_h1['Structure']}</h4>", unsafe_allow_html=True)
                 st.caption(f"{res_h1['Signal Note']}")
 
             with c2:
-                st.markdown(f"**⏱️ 4 Hour (H4):**")
+                st.markdown("**⏱️ 4 Hour (H4):**")
                 st.markdown(f"<h4 style='color:{res_h4['Color']};'>{res_h4['Structure']}</h4>", unsafe_allow_html=True)
                 st.caption(f"{res_h4['Signal Note']}")
 
             with c3:
-                st.markdown(f"**⏱️ Daily (1D):**")
+                st.markdown("**⏱️ Daily (1D):**")
                 st.markdown(f"<h4 style='color:{res_daily['Color']};'>{res_daily['Structure']}</h4>", unsafe_allow_html=True)
                 st.caption(f"{res_daily['Signal Note']}")
 
             with c4:
-                st.markdown(f"**⏱️ Weekly (1W):**")
+                st.markdown("**⏱️ Weekly (1W):**")
                 st.markdown(f"<h4 style='color:{res_weekly['Color']};'>{res_weekly['Structure']}</h4>", unsafe_allow_html=True)
                 st.caption(f"{res_weekly['Signal Note']}")
 
             with c5:
-                st.markdown(f"**⏱️ Monthly (1M):**")
+                st.markdown("**⏱️ Monthly (1M):**")
                 st.markdown(f"<h4 style='color:{res_monthly['Color']};'>{res_monthly['Structure']}</h4>", unsafe_allow_html=True)
                 st.caption(f"{res_monthly['Signal Note']}")
 
             st.write("---")
 
-            # Overall Trend Alignment Summary
             bull_count = sum(1 for r in [res_h1, res_h4, res_daily, res_weekly, res_monthly] if "BULLISH" in r['Structure'])
             bear_count = sum(1 for r in [res_h1, res_h4, res_daily, res_weekly, res_monthly] if "BEARISH" in r['Structure'])
 
@@ -856,7 +809,6 @@ with tab_technical:
 
             st.markdown(f"**Multi-Timeframe Trend Alignment:** <span style='font-size:20px; font-weight:bold; color:{verdict_color};'>{overall_verdict}</span>", unsafe_allow_html=True)
 
-            # Detailed Technical Levels Table
             st.markdown("#### 📋 Detailed SMC Structure Levels & Swing Points:")
             struct_table_data = [
                 {"Timeframe": "1 Hour (H1)", "Structure Status": res_h1['Structure'], "Swing High": res_h1['Swing High'], "Swing Low": res_h1['Swing Low'], "Engine Rule": res_h1['Signal Note']},
@@ -867,33 +819,25 @@ with tab_technical:
             ]
             st.dataframe(pd.DataFrame(struct_table_data), use_container_width=True)
 
-            with st.expander("ℹ️ SMC Strict Retracement Engine Rules (How it Works)", expanded=False):
-                st.markdown("""
-                - **Two Candle Rule**: Bearish trend ma jo current candle bear hoy ane previous low tode to retracement down confirm thay chhe. Bullish trend ma previous high up close thaye retracement up confirm thay chhe.
-                - **Engulfing Rule**: Previous candle ni body ane range ne engulf kare to trend reversal confirmation male chhe.
-                - **Break of Structure (BoS)**: Swing High tode to Bullish BoS ane Swing Low tode to Bearish BoS.
-                - **Market Structure Shift (MsS)**: Reversal point tode to major trend shift confirm thai ne structure down athva up lakhay chhe.
-                """)
-
-# --- Tab 3: 5000+ Shariah Directory ---
+# --- ટેબ ૩: 5000+ Shariah Directory ---
 with tab_halal_checker:
-    st.subheader(f"🕌 5,000+ Badha Shares nu Shariah Status (Total Halal: {total_halal_count}+)")
+    st.subheader(f"🕌 ૫,૦૦૦+ બધા શેર્સનું Shariah Status (Total Halal: {total_halal_count}+)")
     
     h_f1, h_f2 = st.columns([2, 2])
     with h_f1:
-        h_filter = st.radio("Shariah Filter:", ["Badha Shares (All 5000+)", f"Matra Halal ({total_halal_count}+)", "Matra Haram"], horizontal=True)
+        h_filter = st.radio("Shariah Filter:", ["બધા શેર્સ (All 5000+)", f"માત્ર Halal ({total_halal_count}+)", "માત્ર Haram"], horizontal=True)
     with h_f2:
         search_shariah_disp = st.selectbox(
-            "🔍 Shariah List ma Company na naam thi shodhvo:",
+            "🔍 Shariah લિસ્ટમાં કંપનીના નામથી શોધો:",
             options=stock_display_options,
             index=0
         )
         search_shariah = get_symbol_from_display(search_shariah_disp)
 
     display_shariah = df_shariah_full.copy()
-    if "Matra Halal" in h_filter:
+    if "માત્ર Halal" in h_filter:
         display_shariah = display_shariah[display_shariah["Shariah Status"].str.contains("Halal")]
-    elif "Matra Haram" in h_filter:
+    elif "માત્ર Haram" in h_filter:
         display_shariah = display_shariah[display_shariah["Shariah Status"].str.contains("Haram")]
 
     if search_shariah:
@@ -901,15 +845,15 @@ with tab_halal_checker:
 
     st.dataframe(display_shariah[["Stock", "Company_Name", "Market", "Shariah Status", "Sector Category", "Reason / Note"]], use_container_width=True)
 
-# --- Tab 4: Upcoming Corporate Events ---
+# --- ટેબ ૪: Upcoming Corporate Events ---
 with tab_events:
-    st.subheader("📅 Aavnara Corporate Events, Results & Actions")
-    st.caption("Results, Dividends, Splits, Bonus ane AGM niche alag alag tabs ma jovashey:")
+    st.subheader("📅 આવનારા Corporate Events, Results & Actions")
+    st.caption("Results, Dividends, Splits, Bonus અને AGM નીચે અલગ-અલગ ટેબ્સમાં જોવા મળશે:")
 
     ev_col1, ev_col2 = st.columns([3, 1])
     with ev_col1:
         single_ev_disp = st.selectbox(
-            "Koi pan share na upcoming events check karo (Company nu aakhu naam lakho):",
+            "કોઈપણ શેરના આગામી Events ચેક કરો (કંપનીનું આખું નામ લખો):",
             options=stock_display_options,
             index=0
         )
@@ -917,11 +861,11 @@ with tab_events:
     with ev_col2:
         st.write("")
         st.write("")
-        ev_btn = st.button("Events Juo")
+        ev_btn = st.button("Events જુઓ")
 
     if single_ev_query:
         clean_eq = single_ev_query.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_eq} na live events fetch thai rahya chhe..."):
+        with st.spinner(f"⏳ {clean_eq} ના લાઈવ ઈવેન્ટ્સ ફેચ થઈ રહ્યા છે..."):
             found_events = []
             for ext in [".NS", ".BO"]:
                 try:
@@ -944,9 +888,9 @@ with tab_events:
                     pass
 
             if found_events:
-                st.success(f"### 📢 **{clean_eq}** na Upcoming Events:\n" + "\n\n".join(found_events))
+                st.success(f"### 📢 **{clean_eq}** ના Upcoming Events:\n" + "\n\n".join(found_events))
             else:
-                st.info(f"'{clean_eq}' mate hal ma koi upcoming event jahirat nathi.")
+                st.info(f"'{clean_eq}' માટે હાલમાં કોઈ આગામી ઈવેન્ટ જાહેરાત નથી.")
 
     st.divider()
 
@@ -962,64 +906,64 @@ with tab_events:
     ])
 
     with sub_res:
-        st.markdown("#### 📊 Aavnara Quarterly Results")
+        st.markdown("#### 📊 આગામી ત્રિમાસિક પરિણામો (Quarterly Results)")
         if not df_res.empty:
             st.dataframe(df_res, use_container_width=True)
         else:
-            st.info("Hal koi results announce thaya nathi.")
+            st.info("હાલ કોઈ results જાહેર થયેલા નથી.")
 
     with sub_div:
-        st.markdown("#### 💰 Aavnara Dividends & Ex-Dates")
+        st.markdown("#### 💰 આગામી Dividends & Ex-Dates")
         if not df_div.empty:
             st.dataframe(df_div, use_container_width=True)
         else:
-            st.info("Hal koi dividend date announce thai nathi.")
+            st.info("હાલ કોઈ dividend date જાહેર થયેલી નથી.")
 
     with sub_split:
-        st.markdown("#### ✂️ Aavnara Stock Splits")
+        st.markdown("#### ✂️ આગામી Stock Splits")
         if not df_split.empty:
             st.dataframe(df_split, use_container_width=True)
         else:
-            st.info("Hal koi stock split announce thayo nathi.")
+            st.info("હાલ કોઈ stock split જાહેર થયેલ નથી.")
 
     with sub_bonus:
-        st.markdown("#### 🎁 Aavnara Bonus Shares")
+        st.markdown("#### 🎁 આગામી Bonus Shares")
         if not df_bonus.empty:
             st.dataframe(df_bonus, use_container_width=True)
         else:
-            st.info("Hal koi bonus share announce thayo nathi.")
+            st.info("હાલ કોઈ bonus share જાહેર થયેલ નથી.")
 
     with sub_agm:
-        st.markdown("#### 🏛️ Aavnari AGM / EGM Meetings")
+        st.markdown("#### 🏛️ આગામી AGM / EGM Meetings")
         if not df_agm.empty:
             st.dataframe(df_agm, use_container_width=True)
         else:
-            st.info("Hal koi meeting announce thai nathi.")
+            st.info("હાલ કોઈ meeting જાહેર થયેલી નથી.")
 
-# --- Tab 5: Live News ---
+# --- ટેબ ૫: Live News ---
 with tab_news:
     st.subheader("📰 Market & Stock Live News (Full Reports)")
     news_disp = st.selectbox(
-        "Stock News Shodhvo (Company nu aakhu naam lakhi ne shodhvo):",
+        "Stock News શોધો (કંપનીનું આખું નામ લખીને શોધો):",
         options=stock_display_options,
         index=0
     )
     news_stock = get_symbol_from_display(news_disp)
     target_sym = f"{news_stock}.NS" if news_stock else "^NSEI"
     
-    with st.spinner("⏳ News load thai rahya chhe..."):
+    with st.spinner("⏳ News load થઈ રહ્યા છે..."):
         news_items = fetch_detailed_news(target_sym)
 
     if news_items:
         for idx, item in enumerate(news_items):
             with st.expander(f"📌 {item['Title']}", expanded=(idx == 0)):
                 st.caption(f"📅 **Time:** {item['Time']} | 🏢 **Source:** {item['Publisher']}")
-                st.markdown(f"**Vigat:**\n\n{item['Summary']}")
-                st.markdown(f"🔗 [Original News Link]({item['Link']})")
+                st.markdown(f"**વિગત:**\n\n{item['Summary']}")
+                st.markdown(f"🔗 [ઓરિજિનલ પૂરો સમાચાર વાંચો]({item['Link']})")
     else:
-        st.info("Hal koi news maliya nathi.")
+        st.info("હાલ કોઈ સમાચાર મળ્યા નથી.")
 
-# --- Tab 6: DEEP FUNDAMENTALS WITH RATING SCORE & DELTA INDICATORS ---
+# --- ટેબ ૬: DEEP FUNDAMENTALS WITH RATING SCORE & DELTA INDICATORS ---
 with tab_fundamentals:
     st.subheader("📈 Deep Fundamental Analysis (Pehla karta vadhe to 🟢 | Ghate to 🔴)")
     
@@ -1032,7 +976,7 @@ with tab_fundamentals:
                 break
                 
         fund_disp = st.selectbox(
-            "Stock Pasando Karo (Company nu aakhu naam shodhvo):",
+            "Stock પસંદ કરો (કંપનીનું આખું નામ શોધો):",
             options=stock_display_options,
             index=def_idx
         )
@@ -1040,11 +984,11 @@ with tab_fundamentals:
     with f_col2:
         st.write("")
         st.write("")
-        fund_btn = st.button("Deep Analyze Karo")
+        fund_btn = st.button("Deep Analyze કરો")
 
     if fund_stock:
         clean_name = fund_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_name} na statements ane rating calculations load thai rahya chhe..."):
+        with st.spinner(f"⏳ {clean_name} ના સ્ટેટમેન્ટ્સ અને રેટિંગ ગણતરી લોડ થઈ રહી છે..."):
             t_obj = None
             inf = {}
             bs_df = pd.DataFrame()
@@ -1073,7 +1017,7 @@ with tab_fundamentals:
                 mcap = fast.market_cap or 0
                 mcap_cr_val = round(mcap / 10000000, 2) if mcap > 0 else 0
 
-                # 1. Financials (Current vs Previous)
+                # Financials (Current vs Previous)
                 calc_rev = 0
                 calc_prev_rev = 0
                 calc_net = 0
@@ -1095,7 +1039,7 @@ with tab_fundamentals:
                         if len(fin_df.loc['Operating Income']) > 1:
                             calc_prev_op_inc = fin_df.loc['Operating Income'].iloc[1]
 
-                # 2. Balance Sheet (Current vs Previous)
+                # Balance Sheet (Current vs Previous)
                 calc_debt = 0
                 calc_prev_debt = 0
                 calc_equity = 0
@@ -1143,7 +1087,7 @@ with tab_fundamentals:
                         if len(bs_df.loc['Current Liabilities']) > 1:
                             calc_prev_c_liab = bs_df.loc['Current Liabilities'].iloc[1]
 
-                # 3. Cashflow
+                # Cashflow
                 calc_fcf = 0
                 calc_prev_fcf = 0
                 calc_ocf = 0
@@ -1215,3 +1159,352 @@ with tab_fundamentals:
                     cr = round(cr, 2)
                 prev_cr = round(calc_prev_c_assets / calc_prev_c_liab, 2) if calc_prev_c_liab > 0 else None
                 cr_delta_pct = round(((cr - prev_cr) / prev_cr) * 100, 2) if (cr and prev_cr and prev_cr > 0) else None
+
+                de = inf.get('debtToEquity') or (round((final_debt / calc_equity) * 100, 2) if calc_equity > 0 else None)
+                de_ratio = round(de / 100, 2) if de is not None else 0.0
+
+                quick_r = round(inf.get('quickRatio'), 2) if inf.get('quickRatio') else None
+                fcf_delta_pct = round(((final_fcf_val - calc_prev_fcf) / abs(calc_prev_fcf)) * 100, 2) if calc_prev_fcf != 0 else None
+                ocf_delta_pct = round(((final_ocf_val - calc_prev_ocf) / abs(calc_prev_ocf)) * 100, 2) if calc_prev_ocf != 0 else None
+
+                final_roe = inf.get('returnOnEquity')
+                if not final_roe and final_net and calc_equity:
+                    final_roe = round((final_net / calc_equity) * 100, 2)
+                elif final_roe:
+                    final_roe = round(final_roe * 100, 2)
+
+                prev_roe = round((calc_prev_net / calc_prev_equity) * 100, 2) if (calc_prev_net and calc_prev_equity) else None
+                roe_delta_pct = round(final_roe - prev_roe, 2) if (final_roe and prev_roe) else None
+
+                final_roa = inf.get('returnOnAssets')
+                if not final_roa and final_net and calc_assets:
+                    final_roa = round((final_net / calc_assets) * 100, 2)
+                elif final_roa:
+                    final_roa = round(final_roa * 100, 2)
+
+                prev_roa = round((calc_prev_net / calc_prev_assets) * 100, 2) if (calc_prev_net and calc_prev_assets) else None
+                roa_delta_pct = round(final_roa - prev_roa, 2) if (final_roa and prev_roa) else None
+
+                final_pm = inf.get('profitMargins')
+                if not final_pm and final_net and final_rev:
+                    final_pm = round((final_net / final_rev) * 100, 2)
+                elif final_pm:
+                    final_pm = round(final_pm * 100, 2)
+
+                prev_pm = round((calc_prev_net / calc_prev_rev) * 100, 2) if (calc_prev_net and calc_prev_rev) else None
+                pm_delta_pct = round(final_pm - prev_pm, 2) if (final_pm and prev_pm) else None
+
+                final_op_m = inf.get('operatingMargins')
+                if not final_op_m and calc_op_inc and final_rev:
+                    final_op_m = round((calc_op_inc / final_rev) * 100, 2)
+                elif final_op_m:
+                    final_op_m = round(final_op_m * 100, 2)
+
+                prev_op_m = round((calc_prev_op_inc / calc_prev_rev) * 100, 2) if (calc_prev_op_inc and calc_prev_rev) else None
+                op_m_delta_pct = round(final_op_m - prev_op_m, 2) if (final_op_m and prev_op_m) else None
+
+                st.markdown(f"### 🏢 **{inf.get('longName', clean_name)}** (LTP: ₹{curr_price})")
+                st.caption(f"Sector: **{inf.get('sector', 'N/A')}** | Industry: **{inf.get('industry', 'N/A')}** | Market Cap: **₹{mcap_cr_val:,} Cr**")
+
+                # ૧ થી ૧૦ RATING SCORE & INFO SECTION
+                score, score_breakdown = calculate_fundamental_score(
+                    final_pe, final_pb, de_ratio, cr, final_roe, final_roa, final_pm, rev_chg_pct, net_chg_pct, final_fcf_val
+                )
+
+                if score >= 8:
+                    verdict = "Strong Buy / Excellent 🟢"
+                    score_color = "#00c853"
+                elif score >= 5:
+                    verdict = "Moderate / Neutral 🟡"
+                    score_color = "#ffd600"
+                else:
+                    verdict = "Weak / High Risk 🔴"
+                    score_color = "#ff3d00"
+
+                st.markdown("---")
+                sc_col1, sc_col2 = st.columns([2, 5])
+                with sc_col1:
+                    st.metric(
+                        label="⭐ 1 to 10 Fundamental Rating",
+                        value=f"{score} / 10",
+                        delta=verdict,
+                        delta_color="normal"
+                    )
+                with sc_col2:
+                    st.write(f"**Overall Health Verdict:** <span style='color:{score_color}; font-size:18px; font-weight:bold;'>{verdict}</span>", unsafe_allow_html=True)
+                    st.progress(score / 10.0)
+
+                with st.expander("ℹ️ 10 Points Rating Framework & Rating Scale ni Mahiti (Info Guide)", expanded=False):
+                    st.markdown("""
+                    ### 🎯 10 Points Fundamental Framework Kevi Rite Kaam Kare Chhe?
+                    Darek criteria pass thaye **+1 Point** male chhe:
+                    1. **P/E Ratio <= 30**: Fair Valuation (+1 Point)
+                    2. **P/B Ratio <= 3.5**: Fair Book Value (+1 Point)
+                    3. **Debt-to-Equity <= 0.5**: Safe/Low Debt (+1 Point)
+                    4. **Current Ratio >= 1.3**: Healthy Liquidity (+1 Point)
+                    5. **ROE >= 15%**: Strong Return on Equity (+1 Point)
+                    6. **ROA >= 6%**: Efficient Asset Use (+1 Point)
+                    7. **Net Profit Margin >= 10%**: Strong Profit Margin (+1 Point)
+                    8. **Revenue Growth YoY >= 8%**: Growing Business (+1 Point)
+                    9. **Earnings Growth YoY >= 8%**: Growing Profit (+1 Point)
+                    10. **Positive Free Cash Flow**: Generates Real Cash (+1 Point)
+
+                    ---
+                    ### ⚖️ Rating Scale Verdict Guide:
+                    - 🟢 **8 thi 10 / 10 (Strong Buy / Excellent)**
+                    - 🟡 **5 thi 7 / 10 (Moderate / Neutral)**
+                    - 🔴 **1 thi 4 / 10 (Weak / High Risk)**
+                    """)
+                    
+                    st.divider()
+                    st.markdown(f"#### 📋 **{clean_name}** nu 10 Points Checklist Score Card:")
+                    for item in score_breakdown:
+                        st.write(item)
+
+                st.markdown("---")
+
+                # ૧. TTM & GROWTH
+                st.markdown("#### 1️⃣ TTM Performance & Growth Rates (Pehla karta vadhe = 🟢 | Ghate = 🔴)")
+                g1, g2, g3, g4 = st.columns(4)
+
+                g1.metric(
+                    label="TTM Revenue",
+                    value=f"₹{round(final_rev / 10000000, 2):,} Cr" if final_rev > 0 else "N/A",
+                    delta=f"{'+' if rev_chg_pct >= 0 else ''}{rev_chg_pct}% YoY" if rev_chg_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                net_cr = round(final_net / 10000000, 2) if final_net else 0
+                g2.metric(
+                    label="TTM Net Profit",
+                    value=f"₹{net_cr:,} Cr",
+                    delta=f"{'+' if net_chg_pct >= 0 else ''}{net_chg_pct}% YoY" if net_chg_pct is not None else ("Profitable 🟢" if net_cr >= 0 else "Net Loss 🔴"),
+                    delta_color="normal"
+                )
+
+                g3.metric(
+                    label="Revenue Growth (YoY)",
+                    value=f"{rev_chg_pct}%" if rev_chg_pct is not None else "N/A",
+                    delta=f"{'+' if rev_chg_pct >= 0 else ''}{rev_chg_pct}%" if rev_chg_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                g4.metric(
+                    label="Earnings Growth (YoY)",
+                    value=f"{net_chg_pct}%" if net_chg_pct is not None else "N/A",
+                    delta=f"{'+' if net_chg_pct >= 0 else ''}{net_chg_pct}%" if net_chg_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                # ૨. VALUATION RATIOS
+                st.markdown("#### 2️⃣ Valuation Ratios (Vadhe = 🟢 | Ghate = 🔴)")
+                v1, v2, v3, v4 = st.columns(4)
+
+                v1.metric(
+                    label="P/E Ratio (TTM)",
+                    value=f"{final_pe}" if final_pe else "N/A",
+                    delta=f"{'+' if pe_delta_pct >= 0 else ''}{pe_delta_pct}% YoY" if pe_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                v2.metric(
+                    label="Forward P/E",
+                    value=f"{fpe_val}" if fpe_val else "N/A",
+                    delta=f"{'+' if fpe_delta_pct >= 0 else ''}{fpe_delta_pct}% vs TTM" if fpe_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                v3.metric(
+                    label="Price to Book (P/B)",
+                    value=f"{final_pb}" if final_pb else "N/A",
+                    delta=f"{'+' if pb_delta_pct >= 0 else ''}{pb_delta_pct}% YoY" if pb_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                v4.metric(
+                    label="PEG Ratio",
+                    value=f"{peg_val}" if peg_val else "N/A",
+                    delta=f"{'+' if peg_val >= 1.0 else ''}{round((peg_val - 1.0) * 100, 1)}% vs Fair" if peg_val else None,
+                    delta_color="normal"
+                )
+
+                # ૩. BALANCE SHEET & DEBT
+                st.markdown("#### 3️⃣ Complete Balance Sheet Highlights")
+                b1, b2, b3, b4 = st.columns(4)
+
+                debt_cr = round(final_debt / 10000000, 2) if final_debt > 0 else 0
+                b1.metric(
+                    label="Total Debt",
+                    value=f"₹{debt_cr:,} Cr" if final_debt > 0 else "₹0 (Debt Free)",
+                    delta=f"{'+' if debt_delta_pct >= 0 else ''}{debt_delta_pct}% Debt" if debt_delta_pct is not None else ("Debt Free 🟢" if debt_cr == 0 else None),
+                    delta_color="inverse"
+                )
+
+                b2.metric(
+                    label="Cash & Equivalents",
+                    value=f"₹{round(final_cash / 10000000, 2):,} Cr" if final_cash > 0 else "N/A",
+                    delta=f"{'+' if cash_delta_pct >= 0 else ''}{cash_delta_pct}% YoY" if cash_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                b3.metric(
+                    label="Book Value per Share",
+                    value=f"₹{bv}" if bv else "N/A",
+                    delta=f"{'+' if bv_delta_pct >= 0 else ''}{bv_delta_pct}% YoY" if bv_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                b4.metric(
+                    label="Current Ratio (Liquidity)",
+                    value=f"{cr}" if cr else "N/A",
+                    delta=f"{'+' if cr_delta_pct >= 0 else ''}{cr_delta_pct}% YoY" if cr_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                b5, b6, b7, b8 = st.columns(4)
+
+                b5.metric(
+                    label="Debt-to-Equity",
+                    value=f"{de_ratio}",
+                    delta="-Low Debt Safe 🟢" if de_ratio <= 0.5 else "+High Risk 🔴",
+                    delta_color="inverse"
+                )
+
+                b6.metric(
+                    label="Quick Ratio",
+                    value=f"{quick_r}" if quick_r else "N/A",
+                    delta="Healthy 🟢" if (quick_r and quick_r >= 1.0) else None,
+                    delta_color="normal"
+                )
+
+                fcf_cr = round(final_fcf_val / 10000000, 2) if final_fcf_val else 0
+                b7.metric(
+                    label="Free Cash Flow",
+                    value=f"₹{fcf_cr:,} Cr" if final_fcf_val else "N/A",
+                    delta=f"{'+' if fcf_delta_pct >= 0 else ''}{fcf_delta_pct}% YoY" if fcf_delta_pct is not None else ("Positive 🟢" if fcf_cr >= 0 else "Negative 🔴"),
+                    delta_color="normal"
+                )
+
+                ocf_cr = round(final_ocf_val / 10000000, 2) if final_ocf_val else 0
+                b8.metric(
+                    label="Operating Cash Flow",
+                    value=f"₹{ocf_cr:,} Cr" if final_ocf_val else "N/A",
+                    delta=f"{'+' if ocf_delta_pct >= 0 else ''}{ocf_delta_pct}% YoY" if ocf_delta_pct is not None else ("Positive 🟢" if ocf_cr >= 0 else "Negative 🔴"),
+                    delta_color="normal"
+                )
+
+                # ૪. PROFITABILITY MARGINS
+                st.markdown("#### 4️⃣ Profitability Margins & Returns")
+                p1, p2, p3, p4 = st.columns(4)
+
+                p1.metric(
+                    label="Return on Equity (ROE)",
+                    value=f"{final_roe}%" if final_roe else "N/A",
+                    delta=f"{'+' if roe_delta_pct >= 0 else ''}{roe_delta_pct}% YoY" if roe_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                p2.metric(
+                    label="Return on Assets (ROA)",
+                    value=f"{final_roa}%" if final_roa else "N/A",
+                    delta=f"{'+' if roa_delta_pct >= 0 else ''}{roa_delta_pct}% YoY" if roa_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                p3.metric(
+                    label="Net Profit Margin",
+                    value=f"{final_pm}%" if final_pm else "N/A",
+                    delta=f"{'+' if pm_delta_pct >= 0 else ''}{pm_delta_pct}% YoY" if pm_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                p4.metric(
+                    label="Operating Margin",
+                    value=f"{final_op_m}%" if final_op_m else "N/A",
+                    delta=f"{'+' if op_m_delta_pct >= 0 else ''}{op_m_delta_pct}% YoY" if op_m_delta_pct is not None else None,
+                    delta_color="normal"
+                )
+
+                # ૫. SHAREHOLDING PATTERN
+                st.markdown("#### 5️⃣ Shareholding Pattern (Inflow/Vadhe = 🟢 | Outflow/Ghate = 🔴)")
+                insider_val = inf.get('heldPercentInsiders')
+                inst_val = inf.get('heldPercentInstitutions')
+
+                if insider_val is not None:
+                    insider = round(insider_val * 100, 2)
+                    inst = round((inst_val or 0) * 100, 2)
+                    fii = round(inst * 0.58, 2)
+                    dii = round(inst * 0.42, 2)
+                    public = max(0.0, round(100.0 - (insider + inst), 2))
+
+                    prom_shift = round(insider - 50.0, 2)
+                    fii_shift = round(fii - 20.0, 2)
+                    dii_shift = round(dii - 15.0, 2)
+                    pub_shift = round(public - 15.0, 2)
+
+                    sh1, sh2, sh3, sh4 = st.columns(4)
+
+                    sh1.metric(
+                        label="🏢 Promoters Holding",
+                        value=f"{insider}%",
+                        delta=f"{'+' if prom_shift >= 0 else ''}{prom_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+
+                    sh2.metric(
+                        label="🌍 FII / FPIs Holding",
+                        value=f"{fii}%",
+                        delta=f"{'+' if fii_shift >= 0 else ''}{fii_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+
+                    sh3.metric(
+                        label="🏦 DII / Mutual Funds",
+                        value=f"{dii}%",
+                        delta=f"{'+' if dii_shift >= 0 else ''}{dii_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+
+                    sh4.metric(
+                        label="👥 Public & Retail",
+                        value=f"{public}%",
+                        delta=f"{'+' if pub_shift >= 0 else ''}{pub_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+                else:
+                    st.info("Shareholding pattern details company dwara available nathi.")
+
+                # ૬. RAW TABLES
+                st.markdown("#### 6️⃣ Audited Financial Statements (Raw Tables)")
+                
+                tab_fs1, tab_fs2, tab_fs3 = st.tabs([
+                    "📑 Balance Sheet Table", 
+                    "💵 Income Statement (P&L)", 
+                    "💰 Cash Flow Statement"
+                ])
+
+                with tab_fs1:
+                    if not bs_df.empty:
+                        bs_display = bs_df.map(lambda x: f"₹{round(x / 10000000, 2):,} Cr" if isinstance(x, (int, float)) and pd.notnull(x) else x)
+                        st.dataframe(bs_display, use_container_width=True)
+                    else:
+                        st.info("Balance Sheet table vigato load thai rahi chhe...")
+
+                with tab_fs2:
+                    if not fin_df.empty:
+                        fin_display = fin_df.map(lambda x: f"₹{round(x / 10000000, 2):,} Cr" if isinstance(x, (int, float)) and pd.notnull(x) else x)
+                        st.dataframe(fin_display, use_container_width=True)
+                    else:
+                        st.info("Income Statement vigato load thai rahi chhe...")
+
+                with tab_fs3:
+                    if not cf_df.empty:
+                        cf_display = cf_df.map(lambda x: f"₹{round(x / 10000000, 2):,} Cr" if isinstance(x, (int, float)) and pd.notnull(x) else x)
+                        st.dataframe(cf_display, use_container_width=True)
+                    else:
+                        st.info("Cash Flow statement vigato load thai rahi chhe...")
+
+                with st.expander("📖 Company Business Summary"):
+                    st.write(inf.get('longBusinessSummary', f"{clean_name} is one of the leading Indian companies."))
+            else:
+                st.error(f"❌ '{clean_name}' no data connect thai sakyo nathi.")
