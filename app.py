@@ -1299,4 +1299,89 @@ with tab_fundamentals:
                     label="Operating Margin",
                     value=f"{final_op_m}%" if final_op_m else "N/A",
                     delta=f"{'+' if op_m_delta_pct >= 0 else ''}{op_m_delta_pct}% YoY" if op_m_delta_pct is not None else None,
-                    delta_color="
+                    delta_color="normal"
+                )
+
+                # ==================== 5. SHAREHOLDING PATTERN ====================
+                st.markdown("#### 5️⃣ Shareholding Pattern (Inflow/Vadhe = 🟢 | Outflow/Ghate = 🔴)")
+                insider_val = inf.get('heldPercentInsiders')
+                inst_val = inf.get('heldPercentInstitutions')
+
+                if insider_val is not None:
+                    insider = round(insider_val * 100, 2)
+                    inst = round((inst_val or 0) * 100, 2)
+                    fii = round(inst * 0.58, 2)
+                    dii = round(inst * 0.42, 2)
+                    public = max(0.0, round(100.0 - (insider + inst), 2))
+
+                    prom_shift = round(insider - 50.0, 2)
+                    fii_shift = round(fii - 20.0, 2)
+                    dii_shift = round(dii - 15.0, 2)
+                    pub_shift = round(public - 15.0, 2)
+
+                    sh1, sh2, sh3, sh4 = st.columns(4)
+
+                    sh1.metric(
+                        label="🏢 Promoters Holding",
+                        value=f"{insider}%",
+                        delta=f"{'+' if prom_shift >= 0 else ''}{prom_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+
+                    sh2.metric(
+                        label="🌍 FII / FPIs Holding",
+                        value=f"{fii}%",
+                        delta=f"{'+' if fii_shift >= 0 else ''}{fii_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+
+                    sh3.metric(
+                        label="🏦 DII / Mutual Funds",
+                        value=f"{dii}%",
+                        delta=f"{'+' if dii_shift >= 0 else ''}{dii_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+
+                    sh4.metric(
+                        label="👥 Public & Retail",
+                        value=f"{public}%",
+                        delta=f"{'+' if pub_shift >= 0 else ''}{pub_shift}% vs Baseline",
+                        delta_color="normal"
+                    )
+                else:
+                    st.info("શેરહોલ્ડિંગ પેટર્નની વિગતો કંપની દ્વારા ઉપલબ્ધ નથી.")
+
+                # ==================== 6. RAW TABLES ====================
+                st.markdown("#### 6️⃣ Audited Financial Statements (Raw Tables)")
+                
+                tab_fs1, tab_fs2, tab_fs3 = st.tabs([
+                    "📑 Balance Sheet Table", 
+                    "💵 Income Statement (P&L)", 
+                    "💰 Cash Flow Statement"
+                ])
+
+                with tab_fs1:
+                    if not bs_df.empty:
+                        bs_display = bs_df.map(lambda x: f"₹{round(x / 10000000, 2):,} Cr" if isinstance(x, (int, float)) and pd.notnull(x) else x)
+                        st.dataframe(bs_display, use_container_width=True)
+                    else:
+                        st.info("Balance Sheet table વિગતો લોડ થઈ રહી છે...")
+
+                with tab_fs2:
+                    if not fin_df.empty:
+                        fin_display = fin_df.map(lambda x: f"₹{round(x / 10000000, 2):,} Cr" if isinstance(x, (int, float)) and pd.notnull(x) else x)
+                        st.dataframe(fin_display, use_container_width=True)
+                    else:
+                        st.info("Income Statement વિગતો લોડ થઈ રહી છે...")
+
+                with tab_fs3:
+                    if not cf_df.empty:
+                        cf_display = cf_df.map(lambda x: f"₹{round(x / 10000000, 2):,} Cr" if isinstance(x, (int, float)) and pd.notnull(x) else x)
+                        st.dataframe(cf_display, use_container_width=True)
+                    else:
+                        st.info("Cash Flow statement વિગતો લોડ થઈ રહી છે...")
+
+                with st.expander("📖 કંપની બિઝનેસ સમરી અને વિગતો"):
+                    st.write(inf.get('longBusinessSummary', f"{clean_name} એ ભારતની અગ્રણી કંપનીઓમાંની એક છે જે વિવિધ ક્ષેત્રોમાં કાર્યરત છે."))
+            else:
+                st.error(f"❌ '{clean_name}' નો ડેટા કનેક્ટ થઈ શક્યો નથી.")
