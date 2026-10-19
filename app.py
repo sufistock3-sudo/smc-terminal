@@ -3,13 +3,14 @@ import yfinance as yf
 import pandas as pd
 import urllib.request
 import io
+import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # ૧. પેજ સેટઅપ
-st.set_page_config(page_title="SMC Scanner - All NSE & BSE Stocks", layout="wide")
-st.title("⚡ SMC Trading Terminal (NSE & BSE All 5000+ Listed Stocks)")
+st.set_page_config(page_title="SMC Scanner & News Terminal", layout="wide")
+st.title("⚡ SMC Trading Terminal (5000+ Stocks, Multi-TF, Shariah & Live News)")
 
-# ૨. હરામ બિઝનેસ/સેક્ટર્સની યાદી (Shariah Exclusion Criteria)
+# ૨. હરામ બિઝનેસ/સેક્ટર્સની યાદી
 HARAM_KEYWORDS = [
     "bank", "finance", "housing finance", "insurance", "capital",
     "brewery", "distilleries", "liquor", "spirits", "alcohol", "wine",
@@ -39,12 +40,12 @@ def check_halal_compliance(info):
     except Exception:
         return "⚠️ Unknown", "Data Incomplete", "N/A"
 
-# ૪. NSE અને BSE ના બધા જ શેર્સ ડાઉનલોડ કરવા (૫,૦૦૦+ લિસ્ટ)
+# ૪. તમામ ૫,૦૦૦+ ભારતીય શેર્સનું લિસ્ટ (NSE + BSE)
 @st.cache_data(ttl=86400)
 def get_all_nse_bse_symbols():
     symbols = []
     
-    # ૧. NSE ના તમામ શેર્સ (આશરે ૨,૨૦૦+)
+    # NSE લિસ્ટ
     try:
         url_nse = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
         req = urllib.request.Request(
@@ -57,7 +58,7 @@ def get_all_nse_bse_symbols():
     except Exception:
         pass
 
-    # ૨. BSE ના તમામ શેર્સ (આશરે ૩,૫૦૦+)
+    # BSE લિસ્ટ
     try:
         url_bse = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=Active"
         req_bse = urllib.request.Request(
@@ -71,7 +72,6 @@ def get_all_nse_bse_symbols():
     except Exception:
         pass
 
-    # જો લિસ્ટ નાનું રહે તો બેકઅપ સાથે યુનિક લિસ્ટ બનાવવું
     symbols = list(set(symbols))
     if len(symbols) < 1000:
         backup = [
@@ -111,10 +111,11 @@ def check_smc_structure_and_signal(df):
     return signal, status, round(last_close, 2)
 
 # સિંગલ સ્ટોક સ્કેનર વર્કર
-def scan_single_stock(sym):
+def scan_single_stock(args):
+    sym, interval, period = args
     try:
         ticker = yf.Ticker(sym)
-        data = ticker.history(period="1mo", interval="1d")
+        data = ticker.history(period=period, interval=interval)
         if not data.empty and len(data) >= 15:
             sig, smc_status, ltp = check_smc_structure_and_signal(data)
             info = ticker.info or {}
@@ -124,6 +125,7 @@ def scan_single_stock(sym):
             return {
                 "Stock": sym.replace(".NS", "").replace(".BO", ""),
                 "Market": market_type,
+                "Timeframe": interval,
                 "Signal": sig,
                 "LTP (₹)": ltp,
                 "SMC Setup": smc_status,
@@ -135,18 +137,18 @@ def scan_single_stock(sym):
         pass
     return None
 
-# ૬. પેજ લોડ પર ઓટોમેટિક ફાસ્ટ સ્કેન (મલ્ટિ-થ્રેડિંગ સાથે)
+# ૬. પેજ લોડ પર ઓટોમેટિક સ્કેન
 @st.cache_data(ttl=300)
-def run_pre_scan(scan_limit=150):
+def run_pre_scan(interval="1d", period="3mo", scan_limit=150):
     all_symbols = get_all_nse_bse_symbols()
     total_count = len(all_symbols) if len(all_symbols) > 4000 else 5400
     
     scan_list = all_symbols[:scan_limit]
+    task_args = [(sym, interval, period) for sym in scan_list]
     results = []
 
-    # Fast Parallel Scanning (15 Threads)
     with ThreadPoolExecutor(max_workers=15) as executor:
-        scan_results = list(executor.map(scan_single_stock, scan_list))
+        scan_results = list(executor.map(scan_single_stock, task_args))
 
     for item in scan_results:
         if item is not None:
@@ -154,16 +156,78 @@ def run_pre_scan(scan_limit=150):
 
     return pd.DataFrame(results), total_count
 
-# ડેટા ફેચિંગ (પેજ લોડ થતાં જ ઓટોમેટિક)
-with st.spinner("⏳ NSE અને BSE બંને માર્કેટના ૫,૦૦૦+ શેર્સ સ્કેન થઈ રહ્યા છે..."):
-    df_results, total_listed_stocks = run_pre_scan(scan_limit=150)
+# ૭. માર્કેટ ન્યૂઝ લાવવાનું ફંક્શન
+@st.cache_data(ttl=600)
+def fetch_market_news(query="^NSEI"):
+    try:
+        ticker = yf.Ticker(query)
+        news_list = ticker.news
+        cleaned_news = []
+        for n in news_list:
+            title = n.get('title', '')
+            publisher = n.get('publisher', 'Market News')
+            link = n.get('link', '#')
+            pub_time = n.get('providerPublishTime', None)
+            
+            time_str = ""
+            if pub_time:
+                time_str = datetime.datetime.fromtimestamp(pub_time).strftime('%d %b, %I:%M %p')
 
-# ૭. ટોટલ શેર્સ અને સ્ટેટિસ્ટિક્સ કાર્ડ્સ (Metrics)
+            cleaned_news.append({
+                "Title": title,
+                "Publisher": publisher,
+                "Time": time_str,
+                "Link": link
+            })
+        return cleaned_news
+    except Exception:
+        return []
+
+# --- TIMEFRAME SELECTOR (ટોપ બાર પર) ---
+tf_col1, tf_col2 = st.columns([3, 5])
+with tf_col1:
+    selected_tf = st.selectbox(
+        "⏱️ ટાઇમફ્રેમ પસંદ કરો (1m to 1 Month):",
+        [
+            "1 Minute (1m)",
+            "2 Minute (2m)",
+            "5 Minute (5m)",
+            "15 Minute (15m)",
+            "30 Minute (30m)",
+            "1 Hour (60m)",
+            "90 Minute (90m)",
+            "1 Day (1d)",
+            "1 Week (1wk)",
+            "1 Month (1mo)"
+        ],
+        index=7
+    )
+
+tf_mapping = {
+    "1 Minute (1m)": ("1m", "1d"),
+    "2 Minute (2m)": ("2m", "1d"),
+    "5 Minute (5m)": ("5m", "5d"),
+    "15 Minute (15m)": ("15m", "5d"),
+    "30 Minute (30m)": ("30m", "1mo"),
+    "1 Hour (60m)": ("60m", "1mo"),
+    "90 Minute (90m)": ("90m", "1mo"),
+    "1 Day (1d)": ("1d", "3mo"),
+    "1 Week (1wk)": ("1wk", "1y"),
+    "1 Month (1mo)": ("1mo", "5y")
+}
+
+chosen_interval, chosen_period = tf_mapping[selected_tf]
+
+# ડેટા ફેચિંગ
+with st.spinner(f"⏳ {selected_tf} ટાઇમફ્રેમ પર શેર્સ સ્કેન થઈ રહ્યા છે..."):
+    df_results, total_listed_stocks = run_pre_scan(interval=chosen_interval, period=chosen_period, scan_limit=150)
+
+# ૮. મેટ્રિક્સ કાર્ડ્સ
 m_col1, m_col2, m_col3, m_col4 = st.columns(4)
 with m_col1:
-    st.metric(label="🇮🇳 Total NSE + BSE Listed Stocks", value=f"{total_listed_stocks}+")
+    st.metric(label="🇮🇳 Total NSE + BSE Stocks", value=f"{total_listed_stocks}+")
 with m_col2:
-    st.metric(label="📊 Active Scanned Batch", value=len(df_results))
+    st.metric(label="⏱️ Active Timeframe", value=chosen_interval)
 with m_col3:
     buy_count = len(df_results[df_results['Signal'] == "🟢 BUY"]) if not df_results.empty else 0
     st.metric(label="🟢 BUY Signals", value=buy_count)
@@ -173,41 +237,40 @@ with m_col4:
 
 st.divider()
 
-# ૮. ટેબ્સ (Tabs)
-tab_smc, tab_halal_checker = st.tabs(["📊 Live Scanner (NSE + BSE Badha Shares)", "🕌 Halal / Haram Checker"])
+# ૯. ટેબ્સ (Tabs) - News ની અલગ ટેબ ઉમેરી દીધી છે
+tab_smc, tab_halal_checker, tab_news = st.tabs([
+    "📊 Live Scanner (5000+ Stocks & Search)", 
+    "🕌 Halal / Haram Checker", 
+    "📰 Live Market News"
+])
 
 # --- ટેબ ૧: Live Scanner ---
 with tab_smc:
-    st.subheader("📊 લાઇવ સ્કેનર (NSE + BSE બંને શેર્સ)")
+    st.subheader(f"📊 લાઇવ સ્કેનર ({selected_tf})")
     
-    # સર્ચ બોક્સ અને ફિલ્ટર્સ
     s_col1, s_col2, s_col3, s_col4 = st.columns([2, 1, 1, 1])
     with s_col1:
-        search_term = st.text_input("🔍 કોઈપણ શેર શોધો (NSE અથવા BSE):", placeholder="દા.ત. RELIANCE, TCS, ZOMATO, 500325...").strip().upper()
+        search_term = st.text_input("🔍 શેરનું નામ શોધો:", placeholder="દા.ત. RELIANCE, TCS, ZOMATO...").strip().upper()
     with s_col2:
-        market_filter = st.selectbox("માર્કેટ:", ["બંને (NSE + BSE)", "NSE", "BSE"])
+        market_filter = st.selectbox("માર્કેટ ફિલ્ટર:", ["બંને (NSE + BSE)", "NSE", "BSE"])
     with s_col3:
-        signal_filter = st.selectbox("સિગ્નલ:", ["બધા (All)", "🟢 માત્ર BUY", "🔴 માત્ર SELL"])
+        signal_filter = st.selectbox("સિગ્નલ ફિલ્ટર:", ["બધા (All)", "🟢 માત્ર BUY", "🔴 માત્ર SELL"])
     with s_col4:
-        halal_filter = st.selectbox("શરિયા:", ["બધા (All)", "✅ માત્ર Halal", "❌ માત્ર Haram"])
+        halal_filter = st.selectbox("શરિયા ફિલ્ટર:", ["બધા (All)", "✅ માત્ર Halal", "❌ માત્ર Haram"])
 
     filtered_df = df_results.copy()
     if not filtered_df.empty:
-        # Search Box ફિલ્ટર
         if search_term:
             filtered_df = filtered_df[filtered_df['Stock'].str.contains(search_term, case=False, na=False)]
 
-        # માર્કેટ ફિલ્ટર
         if market_filter != "બંને (NSE + BSE)":
             filtered_df = filtered_df[filtered_df['Market'] == market_filter]
 
-        # Signal ફિલ્ટર
         if "BUY" in signal_filter:
             filtered_df = filtered_df[filtered_df['Signal'] == "🟢 BUY"]
         elif "SELL" in signal_filter:
             filtered_df = filtered_df[filtered_df['Signal'] == "🔴 SELL"]
 
-        # Halal/Haram ફિલ્ટર
         if "Halal" in halal_filter:
             filtered_df = filtered_df[filtered_df['Shariah Status'].str.contains("Halal")]
         elif "Haram" in halal_filter:
@@ -234,7 +297,6 @@ with tab_halal_checker:
         check_btn = st.button("ચકાસો (Check Now)")
 
     if stock_query:
-        # પેલા NSE ટ્રાય કરશે, જો ન મળે તો BSE ટ્રાય કરશે
         sym_nse = stock_query if stock_query.endswith(".NS") else f"{stock_query}.NS"
         sym_bse = stock_query if stock_query.endswith(".BO") else f"{stock_query}.BO"
         
@@ -269,3 +331,31 @@ with tab_halal_checker:
     if not df_results.empty:
         halal_table = df_results[["Stock", "Market", "Shariah Status", "Sector", "Reason"]]
         st.dataframe(halal_table, use_container_width=True)
+
+# --- ટેબ ૩: Live Market News (સમાચારો માટે ખાસ ટેબ) ---
+with tab_news:
+    st.subheader("📰 તાજા શેરબજાર અને કંપની સમાચારો (Live Market News)")
+    
+    n_col1, n_col2 = st.columns([3, 1])
+    with n_col1:
+        news_stock = st.text_input("કોઈ ચોક્કસ શેરના સમાચાર જોવા હોય તો નામ લખો (ખાલી રાખશો તો આખા માર્કેટના ન્યૂઝ આવશે):", placeholder="દા.ત. RELIANCE, TATASTEEL, HDFCBANK...").strip().upper()
+    with n_col2:
+        st.write("")
+        st.write("")
+        fetch_news_btn = st.button("ન્યૂઝ મેળવો (Get News)")
+
+    target_sym = "^NSEI"  # Default: Nifty 50 Market News
+    if news_stock:
+        target_sym = news_stock if news_stock.endswith(".NS") else f"{news_stock}.NS"
+
+    with st.spinner("⏳ તાજા સમાચારો લોડ થઈ રહ્યા છે..."):
+        news_items = fetch_market_news(target_sym)
+
+    if news_items:
+        for item in news_items:
+            with st.container():
+                st.markdown(f"#### 🔹 [{item['Title']}]({item['Link']})")
+                st.caption(f"📅 સમય: {item['Time']} | 🏢 સ્રોત: **{item['Publisher']}**")
+                st.markdown("---")
+    else:
+        st.info("હાલ આ વિષય પર કોઈ તાજા સમાચાર મળ્યા નથી.")
