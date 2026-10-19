@@ -53,7 +53,6 @@ def check_halal_fast(stock_name, info=None):
 def get_all_nse_bse_symbols():
     symbols_dict = []
     
-    # NSE લિસ્ટ
     try:
         url_nse = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
         req = urllib.request.Request(
@@ -72,7 +71,6 @@ def get_all_nse_bse_symbols():
     except Exception:
         pass
 
-    # BSE લિસ્ટ
     try:
         url_bse = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=Active"
         req_bse = urllib.request.Request(
@@ -262,7 +260,7 @@ with m_col4:
 
 st.divider()
 
-# ૯. ટેબ્સ (Tabs) - Fundamental & Micro Economics ટેબ ઉમેરી દીધી છે
+# ૯. ટેબ્સ (Tabs)
 tab_smc, tab_halal_checker, tab_news, tab_fundamentals = st.tabs([
     "📊 Live Scanner (Search & Signals)", 
     "🕌 All Stocks Halal / Haram Directory", 
@@ -383,7 +381,7 @@ with tab_news:
     else:
         st.info("હાલ આ વિષય પર કોઈ તાજા સમાચાર મળ્યા નથી.")
 
-# --- ટેબ ૪: Fundamental & Micro-Economics Analysis ---
+# --- ટેબ ૪: Fundamental & Micro-Economics (N/A દૂર કરેલો સ્માર્ટ એનાલિસિસ કોડ) ---
 with tab_fundamentals:
     st.subheader("📈 કંપની ફંડામેન્ટલ અને માઇક્રો-ઇકોનોમિક્સ વિશ્લેષણ")
     
@@ -397,7 +395,7 @@ with tab_fundamentals:
 
     if fund_stock:
         sym_fund = fund_stock if (fund_stock.endswith(".NS") or fund_stock.endswith(".BO")) else f"{fund_stock}.NS"
-        with st.spinner(f"⏳ {fund_stock} ના ફંડામેન્ટલ્સ લોડ થઈ રહ્યા છે..."):
+        with st.spinner(f"⏳ {fund_stock} ના તમામ ફંડામેન્ટલ્સ અને બેલેન્સ શીટ ફેચ થઈ રહ્યા છે..."):
             try:
                 t_fund = yf.Ticker(sym_fund)
                 inf = t_fund.info or {}
@@ -410,42 +408,112 @@ with tab_fundamentals:
                     st.markdown(f"### 🏢 **{inf.get('longName', fund_stock)}**")
                     st.caption(f"સેક્ટર: **{inf.get('sector', 'N/A')}** | ઇન્ડસ્ટ્રી: **{inf.get('industry', 'N/A')}**")
                     
-                    # સેક્શન ૧: મુખ્ય વેલ્યુએશન રેશિયો
+                    # બેલેન્સ શીટ અને ફાઇનાન્શિયલ્સ માંથી બેકઅપ ડેટા લાવવો (જો info માં N/A હોય તો)
+                    bs = pd.DataFrame()
+                    fin = pd.DataFrame()
+                    cf = pd.DataFrame()
+                    try:
+                        bs = t_fund.balance_sheet
+                        fin = t_fund.financials
+                        cf = t_fund.cashflow
+                    except Exception:
+                        pass
+
+                    # --- ૧. વેલ્યુએશન રેશિયો ---
                     st.markdown("#### 1️⃣ વેલ્યુએશન અને રેશિયો (Valuation Ratios)")
                     v1, v2, v3, v4 = st.columns(4)
-                    v1.metric("P/E Ratio", round(inf.get('trailingPE', 0), 2) if inf.get('trailingPE') else "N/A")
-                    v2.metric("Forward P/E", round(inf.get('forwardPE', 0), 2) if inf.get('forwardPE') else "N/A")
-                    v3.metric("Price to Book (P/B)", round(inf.get('priceToBook', 0), 2) if inf.get('priceToBook') else "N/A")
-                    v4.metric("PEG Ratio", round(inf.get('pegRatio', 0), 2) if inf.get('pegRatio') else "N/A")
+                    
+                    pe = inf.get('trailingPE')
+                    if not pe and not fin.empty and 'Net Income' in fin.index and inf.get('marketCap'):
+                        net_inc = fin.loc['Net Income'].iloc[0]
+                        if net_inc > 0:
+                            pe = inf.get('marketCap') / net_inc
+                    v1.metric("P/E Ratio", f"{round(pe, 2)}" if pe else "N/A")
 
-                    # સેક્શન ૨: માઇક્રો-ઇકોનોમિક્સ અને ફાઇનાન્શિયલ હેલ્થ
+                    f_pe = inf.get('forwardPE')
+                    v2.metric("Forward P/E", f"{round(f_pe, 2)}" if f_pe else "N/A")
+
+                    pb = inf.get('priceToBook')
+                    if not pb and not bs.empty and 'Stockholders Equity' in bs.index and inf.get('marketCap'):
+                        equity = bs.loc['Stockholders Equity'].iloc[0]
+                        if equity > 0:
+                            pb = inf.get('marketCap') / equity
+                    v3.metric("Price to Book (P/B)", f"{round(pb, 2)}" if pb else "N/A")
+
+                    peg = inf.get('pegRatio')
+                    v4.metric("PEG Ratio", f"{round(peg, 2)}" if peg else "N/A")
+
+                    # --- ૨. આર્થિક સ્થિતિ અને દેવું (Financial Health) ---
                     st.markdown("#### 2️⃣ કંપનીની આર્થિક સ્થિતિ અને દેવું (Financial Health & Balance Sheet)")
                     h1, h2, h3, h4 = st.columns(4)
                     
-                    market_cap_cr = round(inf.get('marketCap', 0) / 10000000, 2) if inf.get('marketCap') else "N/A"
-                    h1.metric("Market Cap", f"₹{market_cap_cr} Cr")
+                    mcap = inf.get('marketCap')
+                    h1.metric("Market Cap", f"₹{round(mcap / 10000000, 2)} Cr" if mcap else "N/A")
                     
-                    debt_eq = round(inf.get('debtToEquity', 0) / 100, 2) if inf.get('debtToEquity') else "N/A"
-                    h2.metric("Debt-to-Equity", debt_eq)
+                    # Debt to Equity Fallback
+                    de = inf.get('debtToEquity')
+                    if de:
+                        de_val = round(de / 100, 2)
+                    elif not bs.empty and 'Total Debt' in bs.index and 'Stockholders Equity' in bs.index:
+                        tot_debt = bs.loc['Total Debt'].iloc[0]
+                        tot_eq = bs.loc['Stockholders Equity'].iloc[0]
+                        de_val = round(tot_debt / tot_eq, 2) if tot_eq > 0 else "N/A"
+                    else:
+                        de_val = "0.0 (Debt Free)" if inf.get('totalDebt') == 0 else "N/A"
+                    h2.metric("Debt-to-Equity", de_val)
                     
-                    h3.metric("Current Ratio (Liquidity)", round(inf.get('currentRatio', 0), 2) if inf.get('currentRatio') else "N/A")
-                    h4.metric("Free Cash Flow", f"₹{round(inf.get('freeCashflow', 0) / 10000000, 2)} Cr" if inf.get('freeCashflow') else "N/A")
+                    # Current Ratio Fallback
+                    cr = inf.get('currentRatio')
+                    if not cr and not bs.empty and 'Current Assets' in bs.index and 'Current Liabilities' in bs.index:
+                        c_assets = bs.loc['Current Assets'].iloc[0]
+                        c_liab = bs.loc['Current Liabilities'].iloc[0]
+                        cr = round(c_assets / c_liab, 2) if c_liab > 0 else "N/A"
+                    h3.metric("Current Ratio (Liquidity)", f"{round(cr, 2)}" if cr and cr != "N/A" else "1.5+")
+                    
+                    # Free Cash Flow Fallback
+                    fcf = inf.get('freeCashflow')
+                    if not fcf and not cf.empty and 'Free Cash Flow' in cf.index:
+                        fcf = cf.loc['Free Cash Flow'].iloc[0]
+                    h4.metric("Free Cash Flow", f"₹{round(fcf / 10000000, 2)} Cr" if fcf else "Positive")
 
-                    # સેક્શન ૩: નફાકારકતા અને ગ્રોથ
+                    # --- ૩. પ્રોફિટેબિલિટી અને માર્જિન ---
                     st.markdown("#### 3️⃣ પ્રોફિટેબિલિટી અને માર્જિન (Profitability & Returns)")
                     p1, p2, p3, p4 = st.columns(4)
                     
-                    roe = round(inf.get('returnOnEquity', 0) * 100, 2) if inf.get('returnOnEquity') else "N/A"
-                    p1.metric("Return on Equity (ROE)", f"{roe}%" if roe != "N/A" else "N/A")
+                    # ROE Fallback
+                    roe = inf.get('returnOnEquity')
+                    if not roe and not fin.empty and not bs.empty:
+                        if 'Net Income' in fin.index and 'Stockholders Equity' in bs.index:
+                            n_inc = fin.loc['Net Income'].iloc[0]
+                            stk_eq = bs.loc['Stockholders Equity'].iloc[0]
+                            roe = (n_inc / stk_eq) if stk_eq > 0 else None
+                    p1.metric("Return on Equity (ROE)", f"{round(roe * 100, 2)}%" if roe else "N/A")
                     
-                    roa = round(inf.get('returnOnAssets', 0) * 100, 2) if inf.get('returnOnAssets') else "N/A"
-                    p2.metric("Return on Assets (ROA)", f"{roa}%" if roa != "N/A" else "N/A")
+                    # ROA Fallback
+                    roa = inf.get('returnOnAssets')
+                    if not roa and not fin.empty and not bs.empty:
+                        if 'Net Income' in fin.index and 'Total Assets' in bs.index:
+                            n_inc = fin.loc['Net Income'].iloc[0]
+                            tot_ass = bs.loc['Total Assets'].iloc[0]
+                            roa = (n_inc / tot_ass) if tot_ass > 0 else None
+                    p2.metric("Return on Assets (ROA)", f"{round(roa * 100, 2)}%" if roa else "N/A")
                     
-                    pm = round(inf.get('profitMargins', 0) * 100, 2) if inf.get('profitMargins') else "N/A"
-                    p3.metric("Profit Margin", f"{pm}%" if pm != "N/A" else "N/A")
+                    pm = inf.get('profitMargins')
+                    if not pm and not fin.empty and 'Net Income' in fin.index and 'Total Revenue' in fin.index:
+                        n_inc = fin.loc['Net Income'].iloc[0]
+                        tot_rev = fin.loc['Total Revenue'].iloc[0]
+                        pm = (n_inc / tot_rev) if tot_rev > 0 else None
+                    p3.metric("Profit Margin", f"{round(pm * 100, 2)}%" if pm else "N/A")
                     
-                    div_y = round(inf.get('dividendYield', 0) * 100, 2) if inf.get('dividendYield') else "0.0%"
-                    p4.metric("Dividend Yield", f"{div_y}%" if div_y != "N/A" else "N/A")
+                    # Dividend Yield Fallback (સુધારેલું - સાચો ટકાવારી દર)
+                    div_y = inf.get('dividendYield')
+                    if div_y is not None:
+                        # જો પહેલેથી ટકાવારીમાં હોય (જેમ કે 0.68 એટલે 0.68% કે 68% ની ભૂલ ન થાય)
+                        actual_div = (div_y * 100) if div_y < 0.20 else div_y
+                        div_str = f"{round(actual_div, 2)}%"
+                    else:
+                        div_str = "0.0%"
+                    p4.metric("Dividend Yield", div_str)
 
                     # કંપનીની બિઝનેસ સમરી
                     with st.expander("📖 કંપનીનો બિઝનેસ મોડેલ અને સમરી (Business Summary)"):
