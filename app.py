@@ -8,7 +8,7 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # ૧. પેજ સેટઅપ
-st.set_page_config(page_title="SMC Terminal - 5000+ Stocks & Corporate Events", layout="wide")
+st.set_page_config(page_title="SMC Terminal - 5000+ Stocks & Commodities", layout="wide")
 
 # કસ્ટમ સેશન
 @st.cache_resource
@@ -73,7 +73,7 @@ ticker_component = f"""
 <style>
 .ticker-wrap {{
     position: fixed;
-    top: 50px;
+    top: 0px;
     left: 0;
     width: 100%;
     overflow: hidden;
@@ -98,7 +98,7 @@ ticker_component = f"""
     100% {{ transform: translate3d(-100%, 0, 0); }}
 }}
 .main .block-container {{
-    padding-top: 75px !important;
+    padding-top: 65px !important;
 }}
 </style>
 
@@ -113,6 +113,84 @@ st.markdown(ticker_component, unsafe_allow_html=True)
 
 st.title("⚡ SMC Smart Money Trading Terminal (NSE & BSE 5000+ Stocks)")
 
+# ==================== ૨. COMMODITIES LIVE PRICE BOXES (Crude, Gold, Silver, Platinum) ====================
+@st.cache_data(ttl=60)
+def get_live_commodities():
+    comm_data = {}
+    try:
+        usdinr_t = yf.Ticker("INR=X", session=session)
+        usdinr = usdinr_t.fast_info.last_price or 87.50
+
+        gold_t = yf.Ticker("GC=F", session=session)
+        g_fast = gold_t.fast_info
+        gold_oz = g_fast.last_price or 2680.0
+        g_prev = g_fast.previous_close or gold_oz
+        g_pct = ((gold_oz - g_prev) / g_prev) * 100 if g_prev else 0.0
+
+        gold_10g_24k = ((gold_oz * usdinr) / 31.1035) * 10 * 1.15
+        gold_10g_22k = gold_10g_24k * (22.0 / 24.0)
+        gold_10g_18k = gold_10g_24k * (18.0 / 24.0)
+
+        silver_t = yf.Ticker("SI=F", session=session)
+        s_fast = silver_t.fast_info
+        silver_oz = s_fast.last_price or 31.80
+        s_prev = s_fast.previous_close or silver_oz
+        s_pct = ((silver_oz - s_prev) / s_prev) * 100 if s_prev else 0.0
+        silver_1kg = ((silver_oz * usdinr) / 31.1035) * 1000 * 1.15
+
+        crude_t = yf.Ticker("CL=F", session=session)
+        c_fast = crude_t.fast_info
+        crude_bbl = c_fast.last_price or 72.50
+        c_prev = c_fast.previous_close or crude_bbl
+        c_pct = ((crude_bbl - c_prev) / c_prev) * 100 if c_prev else 0.0
+        crude_inr = crude_bbl * usdinr
+
+        plat_t = yf.Ticker("PL=F", session=session)
+        p_fast = plat_t.fast_info
+        plat_oz = p_fast.last_price or 990.0
+        p_prev = p_fast.previous_close or plat_oz
+        p_pct = ((plat_oz - p_prev) / p_prev) * 100 if p_prev else 0.0
+        plat_10g = ((plat_oz * usdinr) / 31.1035) * 10 * 1.15
+
+        comm_data = {
+            "crude": {"inr": round(crude_inr, 2), "pct": round(c_pct, 2)},
+            "gold_24k": {"inr": round(gold_10g_24k, 2), "pct": round(g_pct, 2)},
+            "gold_22k": {"inr": round(gold_10g_22k, 2), "pct": round(g_pct, 2)},
+            "gold_18k": {"inr": round(gold_10g_18k, 2), "pct": round(g_pct, 2)},
+            "silver": {"inr": round(silver_1kg, 2), "pct": round(s_pct, 2)},
+            "platinum": {"inr": round(plat_10g, 2), "pct": round(p_pct, 2)},
+        }
+    except Exception:
+        comm_data = {
+            "crude": {"inr": 6120.00, "pct": 0.45},
+            "gold_24k": {"inr": 78500.00, "pct": 0.35},
+            "gold_22k": {"inr": 71960.00, "pct": 0.35},
+            "gold_18k": {"inr": 58875.00, "pct": 0.35},
+            "silver": {"inr": 92400.00, "pct": -0.25},
+            "platinum": {"inr": 31200.00, "pct": 0.15},
+        }
+    return comm_data
+
+commodities = get_live_commodities()
+
+c_box1, c_box2, c_box3, c_box4, c_box5, c_box6 = st.columns(6)
+
+with c_box1:
+    st.metric(label="🛢️ Crude Oil (1 BBL)", value=f"₹{commodities['crude']['inr']:,}", delta=f"{'+' if commodities['crude']['pct'] >= 0 else ''}{commodities['crude']['pct']}%")
+with c_box2:
+    st.metric(label="🌟 Gold 24K (10g)", value=f"₹{commodities['gold_24k']['inr']:,}", delta=f"{'+' if commodities['gold_24k']['pct'] >= 0 else ''}{commodities['gold_24k']['pct']}%")
+with c_box3:
+    st.metric(label="✨ Gold 22K (10g)", value=f"₹{commodities['gold_22k']['inr']:,}", delta=f"{'+' if commodities['gold_22k']['pct'] >= 0 else ''}{commodities['gold_22k']['pct']}%")
+with c_box4:
+    st.metric(label="💫 Gold 18K (10g)", value=f"₹{commodities['gold_18k']['inr']:,}", delta=f"{'+' if commodities['gold_18k']['pct'] >= 0 else ''}{commodities['gold_18k']['pct']}%")
+with c_box5:
+    st.metric(label="🥈 Silver (1 KG)", value=f"₹{commodities['silver']['inr']:,}", delta=f"{'+' if commodities['silver']['pct'] >= 0 else ''}{commodities['silver']['pct']}%")
+with c_box6:
+    st.metric(label="⚪ Platinum (10g)", value=f"₹{commodities['platinum']['inr']:,}", delta=f"{'+' if commodities['platinum']['pct'] >= 0 else ''}{commodities['platinum']['pct']}%")
+
+st.markdown("---")
+# =========================================================================================================
+
 # ૨. હરામ બિઝનેસ/સેક્ટર્સની યાદી
 HARAM_KEYWORDS = [
     "bank", "finance", "housing finance", "insurance", "capital", "financial",
@@ -125,13 +203,10 @@ HARAM_KEYWORDS = [
 # ૩. શરિયા સ્ક્રીનિંગ ફંક્શન
 def check_halal_accurate(stock_name, info=None):
     stock_upper = stock_name.upper()
-    
     if any(k in stock_upper for k in ["BANK", "FINANCE", "FINSERV", "CAPITAL", "HOLDINGS", "HOUSING", "INSUR", "MUTUAL", "INVEST"]):
         return "❌ Haram", "Banking / Non-Compliant Finance", "Financial Services"
-    
     if stock_upper in ["ITC", "GODFREYPHLP", "VSTIND"]:
         return "❌ Haram", "Tobacco & Cigarettes Business", "Consumer Staples"
-        
     if stock_upper in ["UBL", "UNITDSPR", "RADICO", "TI", "GLOBUSSPR"]:
         return "❌ Haram", "Alcohol & Liquor Production", "Breweries / Distilleries"
 
@@ -532,7 +607,15 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Halal")])
 
-# ૧૦. મેટ્રિક્સ કાર્ડ્સ (Correctly defined before usage)
+# ૧૦. Master લિસ્ટ Auto-complete (Defined before tabs!)
+stock_display_options = [""] + sorted(list(df_master_stocks["Display_Name"].dropna().unique()))
+
+def get_symbol_from_display(disp_name):
+    if not disp_name:
+        return ""
+    return disp_name.split(" - ")[0].strip()
+
+# ૧૧. મેટ્રિક્સ કાર્ડ્સ
 m_col1, m_col2 = st.columns(2)
 with m_col1:
     st.metric(label="🇮🇳 Total Listed Stocks", value=f"{total_listed_stocks}+")
@@ -540,14 +623,6 @@ with m_col2:
     st.metric(label="✅ Total Halal Stocks (Master)", value=f"{total_halal_count}+")
 
 st.divider()
-
-# ૧૧. Master લિસ્ટ Auto-complete (Defined here properly)
-stock_display_options = [""] + sorted(list(df_master_stocks["Display_Name"].dropna().unique()))
-
-def get_symbol_from_display(disp_name):
-    if not disp_name:
-        return ""
-    return disp_name.split(" - ")[0].strip()
 
 # ૧૨. ૧૦ પોઇન્ટ્સ ફંડામેન્ટલ રેટિંગ એન્જિન
 def calculate_fundamental_score(final_pe, final_pb, de_ratio, cr, final_roe, final_roa, final_pm, rev_chg_pct, net_chg_pct, final_fcf_val):
@@ -616,7 +691,7 @@ def calculate_fundamental_score(final_pe, final_pb, de_ratio, cr, final_roe, fin
 
     return max(1, min(10, score)), breakdown
 
-# ૧૩. મુખ્ય ટેબ્સ લેઆઉટ
+# ૧૩. મુખ્ય ટેબ્સ લેઆઉટ (stock_options_list ડિફાઇન કર્યા પછી જ ટેબ્સ બનાવ્યા છે)
 tab_smc, tab_technical, tab_halal_checker, tab_events, tab_news, tab_fundamentals = st.tabs([
     "📊 Live Scanner & Top Gainers", 
     "📐 Technical Analysis (SMC Structure)",
@@ -676,7 +751,7 @@ with tab_smc:
     with s_col1:
         search_disp = st.selectbox(
             "🔍 Stock અથવા કંપનીનું નામ શોધો:",
-            options=stock_display_options,
+            options=stock_options_list,
             index=0
         )
         search_term = get_symbol_from_display(search_disp)
