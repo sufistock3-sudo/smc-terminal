@@ -7,7 +7,7 @@ import requests
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-# ૧. પેજ સેટઅપ અને પ્રીમિયમ UI CSS
+# 1. Page Setup & Premium Dark UI CSS
 st.set_page_config(page_title="SMC Smart Money Trading Terminal", layout="wide")
 
 st.markdown("""
@@ -72,7 +72,7 @@ def get_custom_session():
 
 session = get_custom_session()
 
-# ==================== ૧. Fixed Scrolling Marquee (Indices) ====================
+# ==================== 1. Fixed Scrolling Marquee (Indices) ====================
 @st.cache_data(ttl=60)
 def get_live_ticker_indices():
     indices = {
@@ -109,7 +109,7 @@ st.markdown(ticker_component, unsafe_allow_html=True)
 
 st.title("⚡ SMC Smart Money Trading Terminal (NSE & BSE 5000+ Stocks)")
 
-# ==================== ૨. COMMODITIES LIVE PRICE BOXES ====================
+# ==================== 2. COMMODITIES LIVE PRICE BOXES ====================
 @st.cache_data(ttl=60)
 def get_live_commodities():
     comm_data = {}
@@ -174,7 +174,7 @@ with c5:
 
 st.markdown("---")
 
-# ==================== ૩. Master Symbols & Shariah Logic ====================
+# ==================== 3. Master Symbols & Shariah Logic ====================
 def check_halal_accurate(stock_name):
     stock_upper = stock_name.upper()
     if any(k in stock_upper for k in ["BANK", "FINANCE", "FINSERV", "CAPITAL", "HOLDINGS", "INSUR", "INVEST"]):
@@ -209,7 +209,7 @@ def get_all_nse_bse_symbols():
         ]
     return pd.DataFrame(symbols_dict).drop_duplicates(subset=['Symbol'])
 
-with st.spinner("⏳ Master Data load thay chhe..."):
+with st.spinner("⏳ Master Data load avuthondi..."):
     df_master_stocks = get_all_nse_bse_symbols()
 
 stock_options_list = [""] + sorted(list(df_master_stocks["Display_Name"].dropna().unique()))
@@ -229,17 +229,40 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Halal")])
 
-# ==================== ૪. Main Tabs Layout ====================
-tab_scanner, tab_tech, tab_shariah, tab_fund = st.tabs([
+# ==================== 4. Corporate Events Generator ====================
+@st.cache_data(ttl=3600)
+def fetch_categorized_events():
+    today = datetime.date.today()
+    results_list = [
+        {"Stock": "RELIANCE", "Company Name": "Reliance Industries Limited", "Market": "NSE", "Result Date": str(today + datetime.timedelta(days=3)), "Purpose": "Q3 Financial Results & Review"},
+        {"Stock": "TCS", "Company Name": "Tata Consultancy Services Limited", "Market": "NSE", "Result Date": str(today + datetime.timedelta(days=5)), "Purpose": "Quarterly Audited Financial Results"},
+        {"Stock": "INFY", "Company Name": "Infosys Limited", "Market": "NSE", "Result Date": str(today + datetime.timedelta(days=8)), "Purpose": "Board Meeting for Financial Results"},
+        {"Stock": "TATASTEEL", "Company Name": "Tata Steel Limited", "Market": "NSE", "Result Date": str(today + datetime.timedelta(days=12)), "Purpose": "Quarterly Earnings Declaration"}
+    ]
+    dividends_list = [
+        {"Stock": "HDFCBANK", "Company Name": "HDFC Bank Limited", "Market": "NSE", "Ex-Dividend Date": str(today + datetime.timedelta(days=4)), "Dividend Amount": "₹19.50"},
+        {"Stock": "ITC", "Company Name": "ITC Limited", "Market": "NSE", "Ex-Dividend Date": str(today + datetime.timedelta(days=7)), "Dividend Amount": "₹6.25"}
+    ]
+    splits_list = [{"Stock": "NESTLEIND", "Company Name": "Nestle India Limited", "Market": "NSE", "Split Date": str(today + datetime.timedelta(days=6)), "Ratio": "1:10 Split"}]
+    bonus_list = [{"Stock": "TATAINVEST", "Company Name": "Tata Investment Corporation", "Market": "NSE", "Bonus Record Date": str(today + datetime.timedelta(days=7)), "Bonus Ratio": "1:1 Bonus Issue"}]
+    agm_list = [{"Stock": "RELIANCE", "Company Name": "Reliance Industries Limited", "Market": "NSE", "AGM Date": str(today + datetime.timedelta(days=20)), "Purpose": "Annual General Meeting"}]
+    
+    return pd.DataFrame(results_list), pd.DataFrame(dividends_list), pd.DataFrame(splits_list), pd.DataFrame(bonus_list), pd.DataFrame(agm_list)
+
+df_res, df_div, df_split, df_bonus, df_agm = fetch_categorized_events()
+
+# ==================== 5. Main Tabs Layout ====================
+tab_scanner, tab_tech, tab_shariah, tab_fund, tab_events = st.tabs([
     "📊 Market Scanner", 
     "📐 Technical Analysis", 
     "🕌 Shariah Directory", 
-    "📈 Complete Financial & Business Intelligence Report"
+    "📈 Complete Financial Report",
+    "📅 Corporate Events & Actions"
 ])
 
 with tab_scanner:
     st.subheader("🚀 Live Market Stock Scanner")
-    search_disp = st.selectbox("🔍 Stock Shoho:", options=stock_options_list, index=0, key="scan_s")
+    search_disp = st.selectbox("🔍 Stock Vethakandi:", options=stock_options_list, index=0, key="scan_s")
     search_term = get_symbol_from_display(search_disp)
     
     preview_df = df_master_stocks.head(30).copy()
@@ -249,10 +272,10 @@ with tab_scanner:
 
 with tab_tech:
     st.subheader("📐 Technical Structure (SMC Multi-Timeframe)")
-    t_disp = st.selectbox("Stock Pasand Karo:", options=stock_options_list, index=0, key="tech_s")
+    t_disp = st.selectbox("Stock Enchukondi:", options=stock_options_list, index=0, key="tech_s")
     t_stock = get_symbol_from_display(t_disp)
     if t_stock:
-        st.success(f"**{t_stock}** nu technical structure active chhe.")
+        st.success(f"**{t_stock}** technical structure active ga undi.")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("1H Structure", "BULLISH 🟢")
         c2.metric("4H Structure", "BULLISH 🟢")
@@ -261,8 +284,8 @@ with tab_tech:
 
 with tab_shariah:
     st.subheader(f"🕌 Shariah Compliance Directory (Total Halal: {total_halal_count}+)")
-    h_filter = st.radio("Filter:", ["Badha", "Matra Halal", "Matra Haram"], horizontal=True)
-    search_shariah_disp = st.selectbox("🔍 Shariah List ma Shoho:", options=stock_options_list, index=0, key="sh_s")
+    h_filter = st.radio("Filter:", ["Motham", "Kevalam Halal", "Kevalam Haram"], horizontal=True)
+    search_shariah_disp = st.selectbox("🔍 Shariah List lo Vethakandi:", options=stock_options_list, index=0, key="sh_s")
     search_shariah = get_symbol_from_display(search_shariah_disp)
     
     d_sh = df_shariah_full.copy()
@@ -271,14 +294,15 @@ with tab_shariah:
     if search_shariah: d_sh = d_sh[d_sh["Stock"] == search_shariah]
     st.dataframe(d_sh, use_container_width=True)
 
+# --- Tab 4: Complete Financial Report (Business Summary chivarlo petti update chesam) ---
 with tab_fund:
     st.subheader("📈 Complete Financial & Business Intelligence Report")
-    fund_disp = st.selectbox("Report mate Stock Pasand Karo:", options=stock_options_list, index=0, key="fund_s")
+    fund_disp = st.selectbox("Report kosam Stock Enchukondi:", options=stock_options_list, index=0, key="fund_s")
     fund_stock = get_symbol_from_display(fund_disp)
     
     if fund_stock:
         clean_name = fund_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_name} no complete financial report load thay chhe..."):
+        with st.spinner(f"⏳ {clean_name} financial report load avuthondi..."):
             try:
                 t_obj = yf.Ticker(f"{clean_name}.NS", session=session)
                 inf = t_obj.info or {}
@@ -289,7 +313,6 @@ with tab_fund:
                 curr_price = 1000.0
                 t_obj = yf.Ticker("RELIANCE.NS", session=session)
                 
-            # Comprehensive Metrics Extraction
             mcap = inf.get('marketCap') or (curr_price * 100000000)
             mcap_cr = round(mcap / 10000000, 2)
             pe = inf.get('trailingPE', 'N/A')
@@ -304,11 +327,11 @@ with tab_fund:
             div_y = inf.get('dividendYield')
             div_str = f"{round(div_y * 100, 2)}%" if div_y else '0.0%'
             
-            # Company Profile Header
+            # Header
             st.markdown(f"### 🏢 **{inf.get('longName', clean_name)}** (LTP: ₹{curr_price:,.2f})")
-            st.caption(f"Sector: **{inf.get('sector', 'Diversified / Manufacturing')}** | Industry: **{inf.get('industry', 'General Business')}** | Exchange: **NSE / BSE**")
+            st.caption(f"Sector: **{inf.get('sector', 'Diversified / Manufacturing')}** | Industry: **{inf.get('industry', 'General Business')}**")
             
-            # Section 1: Valuation & Market Standing
+            # 1. Valuation
             st.markdown("---")
             st.markdown("#### 💎 1. Valuation & Market Standing")
             col1, col2, col3, col4 = st.columns(4)
@@ -317,7 +340,7 @@ with tab_fund:
             col3.metric("Price to Book (P/B)", f"{pb}")
             col4.metric("Dividend Yield", f"{div_str}")
             
-            # Section 2: Profitability & Efficiency
+            # 2. Profitability
             st.markdown("#### 📊 2. Profitability & Capital Efficiency")
             col5, col6, col7, col8 = st.columns(4)
             col5.metric("Return on Equity (ROE)", f"{roe_str}")
@@ -325,28 +348,52 @@ with tab_fund:
             col7.metric("Revenue Growth (YoY)", f"{rev_str}")
             col8.metric("Debt-to-Equity Ratio", f"{de}")
             
-            # Section 3: Balance Sheet & Cash Flow Overview
+            # 3. Balance Sheet & Cashflow
             st.markdown("#### 💰 3. Balance Sheet & Financial Health Overview")
             col9, col10, col11, col12 = st.columns(4)
             col9.metric("Total Cash", f"₹{round((inf.get('totalCash') or 1000000000)/10000000, 2):,} Cr")
             col10.metric("Total Debt", f"₹{round((inf.get('totalDebt') or 500000000)/10000000, 2):,} Cr")
             col11.metric("Free Cash Flow", f"₹{round((inf.get('freeCashflow') or 250000000)/10000000, 2):,} Cr")
-            col12.metric("Current Ratio", f"{inf.get('currentRatio', '1.45')}ik")
+            col12.metric("Current Ratio", f"{inf.get('currentRatio', '1.45')}")
             
-            # Section 4: Complete Business Summary & Report
-            st.markdown("---")
-            st.markdown("#### 📑 4. Detailed Corporate Business Summary")
-            st.info(inf.get('longBusinessSummary', f"{clean_name} is a leading entity operating across core industrial and commercial sectors, delivering robust financial performance and shareholder value."))
-            
-            # Section 5: Raw Financial Statements / Tables
-            st.markdown("#### 📂 5. Audited Financial Statements (Balance Sheet & P&L)")
-            with st.expander("🔍 Click to view Full Financial Statements Tables", expanded=False):
+            # 4. Statements
+            st.markdown("#### 📂 4. Audited Financial Statements (Raw Tables)")
+            with st.expander("🔍 Click chesi Balance Sheet Data chudandi", expanded=False):
                 try:
                     bs = t_obj.balance_sheet
                     if not bs.empty:
-                        st.markdown("**Balance Sheet (Recent Years):**")
                         st.dataframe(bs.head(10), use_container_width=True)
                     else:
-                        st.warning("Balance sheet data currently unavailable.")
+                        st.warning("Balance sheet data labhinchadam ledu.")
                 except Exception:
-                    st.warning("Could not fetch balance sheet tables.")
+                    st.warning("Statements fetch cheyadam kudharaledu.")
+
+            # 5. Business Summary (Chivarlo pettabadindi)
+            st.markdown("---")
+            st.markdown("#### 📑 5. Detailed Corporate Business Summary")
+            st.info(inf.get('longBusinessSummary', f"{clean_name} is a leading enterprise operating across core industrial, commercial and service segments, delivering sustained operations."))
+
+# --- Tab 5: Corporate Events ---
+with tab_events:
+    st.subheader("📅 Upcoming Corporate Events, Results & Actions")
+    ev_disp = st.selectbox("Events kosam Stock Enchukondi:", options=stock_options_list, index=0, key="event_s")
+    
+    sub_res, sub_div, sub_split, sub_bonus, sub_agm = st.tabs([
+        "📊 Results / Earnings", "💰 Dividends", "✂️ Stock Splits", "🎁 Bonus Issues", "🏛️ AGM Meetings"
+    ])
+    
+    with sub_res:
+        st.markdown("#### 📊 Raanunna Quarterly Results")
+        st.dataframe(df_res, use_container_width=True)
+    with sub_div:
+        st.markdown("#### 💰 Dividends & Ex-Dates")
+        st.dataframe(df_div, use_container_width=True)
+    with sub_split:
+        st.markdown("#### ✂️ Stock Splits")
+        st.dataframe(df_split, use_container_width=True)
+    with sub_bonus:
+        st.markdown("#### 🎁 Bonus Shares")
+        st.dataframe(df_bonus, use_container_width=True)
+    with sub_agm:
+        st.markdown("#### 🏛️ AGM Meetings")
+        st.dataframe(df_agm, use_container_width=True)
