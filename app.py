@@ -330,52 +330,62 @@ def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf)
     breakdown = []
     
     if pe and 0 < pe <= 30:
-        score += 1; breakdown.append("✅ 1. P/E Ratio <= 30 (Good Valuation)")
+        score += 1
+        breakdown.append("✅ 1. P/E Ratio <= 30 (Good Valuation)")
     else:
         breakdown.append("❌ 1. High P/E Ratio (> 30 / Negative)")
         
     if pb and 0 < pb <= 3.5:
-        score += 1; breakdown.append("✅ 2. Price to Book <= 3.5 (Fair Asset Valuation)")
+        score += 1
+        breakdown.append("✅ 2. Price to Book <= 3.5 (Fair Asset Valuation)")
     else:
         breakdown.append("❌ 2. High Price to Book Ratio (> 3.5)")
         
     if de is not None and de <= 0.5:
-        score += 1; breakdown.append("✅ 3. Debt-to-Equity <= 0.5 (Low / Safe Debt)")
+        score += 1
+        breakdown.append("✅ 3. Debt-to-Equity <= 0.5 (Low / Safe Debt)")
     else:
         breakdown.append("❌ 3. High Debt-to-Equity (> 0.5)")
         
     if cr and cr >= 1.3:
-        score += 1; breakdown.append("✅ 4. Current Ratio >= 1.3 (Healthy Liquidity)")
+        score += 1
+        breakdown.append("✅ 4. Current Ratio >= 1.3 (Healthy Liquidity)")
     else:
         breakdown.append("❌ 4. Low Liquidity (Current Ratio < 1.3)")
         
     if roe and roe >= 15.0:
-        score += 1; breakdown.append("✅ 5. Return on Equity >= 15% (Strong Efficiency)")
+        score += 1
+        breakdown.append("✅ 5. Return on Equity >= 15% (Strong Efficiency)")
     else:
         breakdown.append("❌ 5. Low ROE (< 15%)")
         
     if roa and roa >= 6.0:
-        score += 1; breakdown.append("✅ 6. Return on Assets >= 6% (Efficient Assets)")
+        score += 1
+        breakdown.append("✅ 6. Return on Assets >= 6% (Efficient Assets)")
     else:
         breakdown.append("❌ 6. Low ROA (< 6%)")
         
     if pm and pm >= 10.0:
-        score += 1; breakdown.append("✅ 7. Net Profit Margin >= 10% (High Profitability)")
+        score += 1
+        breakdown.append("✅ 7. Net Profit Margin >= 10% (High Profitability)")
     else:
         breakdown.append("❌ 7. Low Net Profit Margin (< 10%)")
         
     if rev_g is not None and rev_g >= 8.0:
-        score += 1; breakdown.append("✅ 8. Revenue Growth YoY >= 8% (Growing Business)")
+        score += 1
+        breakdown.append("✅ 8. Revenue Growth YoY >= 8% (Growing Business)")
     else:
         breakdown.append("❌ 8. Flat / Low Revenue Growth (< 8%)")
         
     if net_g is not None and net_g >= 8.0:
-        score += 1; breakdown.append("✅ 9. Net Profit Growth YoY >= 8% (Expanding Profit)")
+        score += 1
+        breakdown.append("✅ 9. Net Profit Growth YoY >= 8% (Expanding Profit)")
     else:
         breakdown.append("❌ 9. Low Earnings Growth (< 8%)")
         
     if fcf and fcf > 0:
-        score += 1; breakdown.append("✅ 10. Positive Free Cash Flow (Actual Cash Generation)")
+        score += 1
+        breakdown.append("✅ 10. Positive Free Cash Flow (Actual Cash Generation)")
     else:
         breakdown.append("❌ 10. Negative Free Cash Flow / Cash Burn")
         
@@ -416,7 +426,8 @@ with tab_scanner:
     search_disp = st.selectbox(txt["search_stock"], options=stock_options_list, index=0, key="scan_s")
     search_term = get_symbol_from_display(search_disp)
     preview_df = df_master_stocks.head(30).copy()
-    if search_term: preview_df = preview_df[preview_df['Stock'] == search_term]
+    if search_term: 
+        preview_df = preview_df[preview_df['Stock'] == search_term]
     st.dataframe(preview_df, use_container_width=True)
 
 with tab_tech:
@@ -437,12 +448,15 @@ with tab_shariah:
     search_shariah_disp = st.selectbox(txt["search_stock"], options=stock_options_list, index=0, key="sh_s")
     search_shariah = get_symbol_from_display(search_shariah_disp)
     d_sh = df_shariah_full.copy()
-    if h_filter == txt["halal_only"]: d_sh = d_sh[d_sh["Shariah Status"].str.contains("Halal")]
-    elif h_filter == txt["haram_only"]: d_sh = d_sh[d_sh["Shariah Status"].str.contains("Haram")]
-    if search_shariah: d_sh = d_sh[d_sh["Stock"] == search_shariah]
+    if h_filter == txt["halal_only"]: 
+        d_sh = d_sh[d_sh["Shariah Status"].str.contains("Halal")]
+    elif h_filter == txt["haram_only"]: 
+        d_sh = d_sh[d_sh["Shariah Status"].str.contains("Haram")]
+    if search_shariah: 
+        d_sh = d_sh[d_sh["Stock"] == search_shariah]
     st.dataframe(d_sh, use_container_width=True)
 
-# ==================== DEEP FUNDAMENTAL TAB (FULL RESTORED) ====================
+# ==================== DEEP FUNDAMENTAL TAB ====================
 with tab_fund:
     st.subheader(txt["tab_fund"])
     def_idx = 0
@@ -560,20 +574,20 @@ with tab_fund:
             s3.metric("🏦 DII / Mutual Funds", "14.80%", "+0.8% Inflow 🟢")
             s4.metric("👥 Public & Retail", "10.60%", "-2.5% Outflow")
 
-            # 6. Raw Audited Financial Statements
+            # 6. Raw Audited Financial Statements (Syntax Error Solved Here)
             st.markdown(f"#### {txt['stmt_header']}")
-            with st.expander("🔍 Click to view Balance Sheet Statements", expanded=False):[cite: 20]
+            with st.expander("🔍 Click to view Balance Sheet Statements", expanded=False):
                 if not bs_df.empty:
                     st.dataframe(bs_df.head(10), use_container_width=True)
                 else:
                     st.info(txt["no_data"])
 
-            # 7. Detailed Corporate Business Summary (Translated)[cite: 20]
+            # 7. Detailed Corporate Business Summary (Translated)
             st.markdown("---")
-            st.markdown(f"#### {txt['summary_header']}")[cite: 20]
-            raw_summary = inf.get('longBusinessSummary', f"{clean_name} is a leading diversified enterprise.")[cite: 20]
+            st.markdown(f"#### {txt['summary_header']}")
+            raw_summary = inf.get('longBusinessSummary', f"{clean_name} is a leading diversified enterprise.")
             translated_summary = translate_summary_text(raw_summary, selected_lang)
-            st.info(translated_summary)[cite: 20]
+            st.info(translated_summary)
 
 # ==================== CORPORATE EVENTS (LAST TAB) ====================
 with tab_events:
@@ -585,17 +599,17 @@ with tab_events:
     ])
     
     with sub_res:
-        st.markdown("#### 📊 આગામી ત્રિમાસિક પરિણામો (Quarterly Results)")
+        st.markdown("#### 📊 Quarterly Results")
         st.dataframe(df_res, use_container_width=True)
     with sub_div:
-        st.markdown("#### 💰 આગામી Dividends & Ex-Dates")
+        st.markdown("#### 💰 Dividends & Ex-Dates")
         st.dataframe(df_div, use_container_width=True)
     with sub_split:
-        st.markdown("#### ✂️ આગામી Stock Splits")
+        st.markdown("#### ✂️ Stock Splits")
         st.dataframe(df_split, use_container_width=True)
     with sub_bonus:
-        st.markdown("#### 🎁 આગામી Bonus Shares")
+        st.markdown("#### 🎁 Bonus Shares")
         st.dataframe(df_bonus, use_container_width=True)
     with sub_agm:
-        st.markdown("#### 🏛️ આગામી AGM Meetings")
+        st.markdown("#### 🏛️ AGM Meetings")
         st.dataframe(df_agm, use_container_width=True)
