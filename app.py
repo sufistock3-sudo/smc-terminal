@@ -8,7 +8,7 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # 1. Page Setup & Terminal Look UI
-st.set_page_config(page_title="SMC Smart Money Trading Terminal", layout="wide")
+st.set_page_config(page_title="SMC Terminal", layout="wide")
 
 st.markdown("""
 <style>
@@ -72,111 +72,7 @@ def get_custom_session():
 
 session = get_custom_session()
 
-# ==================== SUMMARY AUTO-TRANSLATION ====================
-@st.cache_data(ttl=86400)
-def translate_summary_text(text, target_lang):
-    if not text or target_lang == "English":
-        return text
-    
-    lang_code = "gu" if target_lang == "ગુજરાતી" else ("hi" if target_lang == "हिन्दी" else "en")
-    try:
-        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl={lang_code}&dt=t&q={requests.utils.quote(text[:1500])}"
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            result = resp.json()
-            translated_sentences = [part[0] for part in result[0] if part[0]]
-            return "".join(translated_sentences)
-    except Exception:
-        pass
-    return text
-
-# ==================== LANGUAGE DICTIONARY ====================
-TRANSLATIONS = {
-    "English": {
-        "title": "⚡ SMC Smart Money Trading Terminal (NSE & BSE 5000+ Stocks)",
-        "tab_scanner": "📊 Market Scanner",
-        "tab_tech": "📐 Technical Analysis",
-        "tab_shariah": "🕌 Shariah Directory",
-        "tab_fund": "📈 Deep Fundamental, TTM, Balance Sheet & Growth",
-        "tab_events": "📅 Corporate Events & Actions",
-        "search_stock": "🔍 Search Stock or Company:",
-        "choose_stock": "Select Stock for Analysis:",
-        "filter": "Filter:",
-        "all": "All",
-        "halal_only": "Halal Only",
-        "haram_only": "Haram Only",
-        "structure_active": "Technical structure is active.",
-        "rating_label": "⭐ 1 to 10 Fundamental Rating",
-        "ttm_header": "1️⃣ TTM Performance & Growth Rates (Up = 🟢 | Down = 🔴)",
-        "val_header": "2️⃣ Valuation Ratios",
-        "bs_header": "3️⃣ Balance Sheet & Cash Flow Health",
-        "prof_header": "4️⃣ Profitability Margins & Returns",
-        "sh_header": "5️⃣ Shareholding Pattern",
-        "stmt_header": "6️⃣ Audited Financial Statements (Raw Tables)",
-        "summary_header": "7️⃣ Detailed Corporate Business Summary (Translated)",
-        "loading": "Loading comprehensive analytics...",
-        "no_data": "Data currently unavailable."
-    },
-    "ગુજરાતી": {
-        "title": "⚡ SMC સ્માર્ટ મની ટ્રેડિંગ ટર્મિનલ (NSE અને BSE 5000+ શેર્સ)",
-        "tab_scanner": "📊 માર્કેટ સ્કેનર",
-        "tab_tech": "📐 ટેક્નિકલ એનાલિસિસ",
-        "tab_shariah": "🕌 શરિયા ડિરેક્ટરી",
-        "tab_fund": "📈 ડીપ ફંડામેન્ટલ, TTM, બેલેન્સ શીટ અને ગ્રોથ",
-        "tab_events": "📅 કોર્પોરેટ ઈવેન્ટ્સ અને એક્શન્સ",
-        "search_stock": "🔍 સ્ટોક અથવા કંપનીનું નામ શોધો:",
-        "choose_stock": "વિશ્લેષણ માટે શેર પસંદ કરો:",
-        "filter": "ફિલ્ટર:",
-        "all": "બધા શેર્સ",
-        "halal_only": "માત્ર હલાલ",
-        "haram_only": "માત્ર હરામ",
-        "structure_active": "ટેકનિકલ સ્ટ્રક્ચર સક્રિય છે.",
-        "rating_label": "⭐ ૧ થી ૧૦ ફંડામેન્ટલ રેટિંગ સ્કોર",
-        "ttm_header": "1️⃣ TTM પર્ફોર્મન્સ અને ગ્રોથ રેટ્સ (વધે = 🟢 | ઘટે = 🔴)",
-        "val_header": "2️⃣ વેલ્યુએશન રેશિયોઝ (Valuation Ratios)",
-        "bs_header": "3️⃣ બેલેન્સ શીટ અને કેશ ફ્લો સ્થિતિ",
-        "prof_header": "4️⃣ પ્રોફિટેબિલિટી માર્જિન્સ અને રિટર્ન્સ",
-        "sh_header": "5️⃣ શેરહોલ્ડિંગ પેટર્ન (FII / DII / પ્રમોટર્સ)",
-        "stmt_header": "6️⃣ ઓડિટેડ બેલેન્સ શીટ અને P&L ટેબલ્સ",
-        "summary_header": "7️⃣ વિગતવાર કોર્પોરેટ બિઝનેસ સમરી (અનુવાદ સાથે)",
-        "loading": "સંપૂર્ણ ફંડામેન્ટલ ડેટા લોડ થઈ રહ્યો છે...",
-        "no_data": "ડેટા હાલમાં ઉપલબ્ધ નથી."
-    },
-    "हिन्दी": {
-        "title": "⚡ SMC स्मार्ट मनी ट्रेडिंग टर्मिनल (NSE एवं BSE 5000+ शेयर्स)",
-        "tab_scanner": "📊 मार्केट स्कैनर",
-        "tab_tech": "📐 टेक्निकल एनालिसिस",
-        "tab_shariah": "🕌 शरिया डायरेक्टरी",
-        "tab_fund": "📈 डीप फंडामेंटल, TTM, बैलेंस शीट एवं ग्रोथ",
-        "tab_events": "📅 कॉर्पोरेट इवेंट्स और एक्शन्स",
-        "search_stock": "🔍 शेयर या कंपनी का नाम खोजें:",
-        "choose_stock": "विश्लेषण हेतु शेयर चुनें:",
-        "filter": "फ़िल्टर:",
-        "all": "सभी शेयर्स",
-        "halal_only": "केवल हलाल",
-        "haram_only": "केवल हराम",
-        "structure_active": "टेक्निकल स्ट्रक्चर सक्रिय है।",
-        "rating_label": "⭐ १ से १० फंडामेंटल रेटिंग स्कोर",
-        "ttm_header": "1️⃣ TTM परफॉर्मेंस और ग्रोथ रेट्स (बढ़े = 🟢 | घटे = 🔴)",
-        "val_header": "2️⃣ वैल्यूएशन रेश्यो",
-        "bs_header": "3️⃣ बैलेंस शीट एवं कैश फ्लो स्थिति",
-        "prof_header": "4️⃣ लाभप्रदता मार्जिन और रिटर्न्स",
-        "sh_header": "5️⃣ शेयरहोल्डिंग पैटर्न (FII / DII / प्रमोटर्स)",
-        "stmt_header": "6️⃣ ऑडिटेड बैलेंस शीट और P&L टेबल्स",
-        "summary_header": "7️⃣ विस्तृत कॉर्पोरेट बिजनेस सारांश (अनुवादित)",
-        "loading": "संपूर्ण फंडामेंटल डेटा लोड हो रहा है...",
-        "no_data": "डेटा वर्तमान में उपलब्ध नहीं है।"
-    }
-}
-
-# ==================== LANGUAGE SELECTOR BAR ====================
-top_c1, top_c2 = st.columns([4, 1])
-with top_c2:
-    selected_lang = st.selectbox("🌐 Language / ભાષા / भाषा:", ["English", "ગુજરાતી", "हिन्दी"], index=1)
-
-txt = TRANSLATIONS[selected_lang]
-
-# ==================== FIXED TICKER ====================
+# ==================== ૧. Fixed Scrolling Marquee (Indices) ====================
 @st.cache_data(ttl=60)
 def get_live_ticker_indices():
     indices = {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN", "BANK NIFTY": "^NSEBANK", "INDIA VIX": "^INDIAVIX"}
@@ -207,10 +103,10 @@ st.markdown(f"""
 <div class="ticker-wrap"><div class="ticker-move">{get_live_ticker_indices()}</div></div>
 """, unsafe_allow_html=True)
 
-with top_c1:
-    st.title(txt["title"])
+# માત્ર SMC Terminal ટાઇટલ
+st.title("⚡ SMC Terminal")
 
-# ==================== COMMODITIES BAR ====================
+# ==================== ૨. COMMODITIES (18K, 22K, Hallmark 24K, Silver, Crude) ====================
 @st.cache_data(ttl=60)
 def get_live_commodities():
     comm_data = {}
@@ -243,34 +139,59 @@ def get_live_commodities():
         crude_inr = crude_bbl * usdinr
 
         comm_data = {
-            "crude": {"inr": round(crude_inr, 2), "pct": round(c_pct, 2)},
-            "gold_24k": {"inr": round(gold_10g_24k, 2), "pct": round(g_pct, 2)},
-            "gold_22k": {"inr": round(gold_10g_22k, 2), "pct": round(g_pct, 2)},
             "gold_18k": {"inr": round(gold_10g_18k, 2), "pct": round(g_pct, 2)},
+            "gold_22k": {"inr": round(gold_10g_22k, 2), "pct": round(g_pct, 2)},
+            "gold_24k": {"inr": round(gold_10g_24k, 2), "pct": round(g_pct, 2)},
             "silver": {"inr": round(silver_1kg, 2), "pct": round(s_pct, 2)},
+            "crude": {"inr": round(crude_inr, 2), "pct": round(c_pct, 2)},
         }
     except Exception:
         comm_data = {
-            "crude": {"inr": 6120.00, "pct": 0.45},
-            "gold_24k": {"inr": 78500.00, "pct": 0.35},
-            "gold_22k": {"inr": 71960.00, "pct": 0.35},
             "gold_18k": {"inr": 58875.00, "pct": 0.35},
+            "gold_22k": {"inr": 71960.00, "pct": 0.35},
+            "gold_24k": {"inr": 78500.00, "pct": 0.35},
             "silver": {"inr": 92400.00, "pct": -0.25},
+            "crude": {"inr": 6120.00, "pct": 0.45},
         }
     return comm_data
 
 commodities = get_live_commodities()
 
 c1, c2, c3, c4, c5 = st.columns(5)
-with c1: st.metric("🛢️ Crude Oil (1 BBL)", f"₹{commodities['crude']['inr']:,}", f"{'+' if commodities['crude']['pct'] >= 0 else ''}{commodities['crude']['pct']}%")
-with c2: st.metric("🌟 Gold 24K (10g)", f"₹{commodities['gold_24k']['inr']:,}", f"{'+' if commodities['gold_24k']['pct'] >= 0 else ''}{commodities['gold_24k']['pct']}%")
-with c3: st.metric("✨ Gold 22K (10g)", f"₹{commodities['gold_22k']['inr']:,}", f"{'+' if commodities['gold_22k']['pct'] >= 0 else ''}{commodities['gold_22k']['pct']}%")
-with c4: st.metric("💫 Gold 18K (10g)", f"₹{commodities['gold_18k']['inr']:,}", f"{'+' if commodities['gold_18k']['pct'] >= 0 else ''}{commodities['gold_18k']['pct']}%")
-with c5: st.metric("🥈 Silver (1 KG)", f"₹{commodities['silver']['inr']:,}", f"{'+' if commodities['silver']['pct'] >= 0 else ''}{commodities['silver']['pct']}%")
+with c1:
+    st.metric(
+        label="💫 Gold 18K (10g)", 
+        value=f"₹{commodities['gold_18k']['inr']:,}", 
+        delta=f"{'+' if commodities['gold_18k']['pct'] >= 0 else ''}{commodities['gold_18k']['pct']}%"
+    )
+with c2:
+    st.metric(
+        label="✨ Gold 22K (10g)", 
+        value=f"₹{commodities['gold_22k']['inr']:,}", 
+        delta=f"{'+' if commodities['gold_22k']['pct'] >= 0 else ''}{commodities['gold_22k']['pct']}%"
+    )
+with c3:
+    st.metric(
+        label="🌟 Hallmark Gold 24K (10g)", 
+        value=f"₹{commodities['gold_24k']['inr']:,}", 
+        delta=f"{'+' if commodities['gold_24k']['pct'] >= 0 else ''}{commodities['gold_24k']['pct']}%"
+    )
+with c4:
+    st.metric(
+        label="🥈 Silver (1 KG)", 
+        value=f"₹{commodities['silver']['inr']:,}", 
+        delta=f"{'+' if commodities['silver']['pct'] >= 0 else ''}{commodities['silver']['pct']}%"
+    )
+with c5:
+    st.metric(
+        label="🛢️ Crude Oil (1 BBL)", 
+        value=f"₹{commodities['crude']['inr']:,}", 
+        delta=f"{'+' if commodities['crude']['pct'] >= 0 else ''}{commodities['crude']['pct']}%"
+    )
 
 st.markdown("---")
 
-# ==================== MASTER LIST & SHARIAH ====================
+# ==================== ૩. Master Symbols & Shariah Logic ====================
 def check_halal_accurate(stock_name):
     s = stock_name.upper()
     if any(k in s for k in ["BANK", "FINANCE", "FINSERV", "CAPITAL", "HOLDINGS", "INSUR", "INVEST"]):
@@ -324,7 +245,7 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Halal")])
 
-# ==================== 10-POINTS RATING ENGINE ====================
+# ==================== ૪. 10-Points Rating Engine ====================
 def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf):
     score = 0
     breakdown = []
@@ -391,7 +312,7 @@ def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf)
         
     return max(1, min(10, score)), breakdown
 
-# ==================== CORPORATE EVENTS ====================
+# ==================== ૫. Corporate Events ====================
 @st.cache_data(ttl=3600)
 def fetch_categorized_events():
     today = datetime.date.today()
@@ -412,18 +333,18 @@ def fetch_categorized_events():
 
 df_res, df_div, df_split, df_bonus, df_agm = fetch_categorized_events()
 
-# ==================== MAIN TABS ====================
+# ==================== ૬. Main Tabs ====================
 tab_scanner, tab_tech, tab_shariah, tab_fund, tab_events = st.tabs([
-    txt["tab_scanner"], 
-    txt["tab_tech"], 
-    txt["tab_shariah"], 
-    txt["tab_fund"],
-    txt["tab_events"]
+    "📊 માર્કેટ સ્કેનર", 
+    "📐 ટેક્નિકલ એનાલિસિસ", 
+    "🕌 શરિયા ડિરેક્ટરી", 
+    "📈 ડીપ ફંડામેન્ટલ, TTM, બેલેન્સ શીટ અને ગ્રોથ",
+    "📅 કોર્પોરેટ ઈવેન્ટ્સ અને એક્શન્સ"
 ])
 
 with tab_scanner:
-    st.subheader(txt["tab_scanner"])
-    search_disp = st.selectbox(txt["search_stock"], options=stock_options_list, index=0, key="scan_s")
+    st.subheader("📊 માર્કેટ સ્કેનર")
+    search_disp = st.selectbox("🔍 સ્ટોક અથવા કંપનીનું નામ શોધો:", options=stock_options_list, index=0, key="scan_s")
     search_term = get_symbol_from_display(search_disp)
     preview_df = df_master_stocks.head(30).copy()
     if search_term: 
@@ -431,11 +352,11 @@ with tab_scanner:
     st.dataframe(preview_df, use_container_width=True)
 
 with tab_tech:
-    st.subheader(txt["tab_tech"])
-    t_disp = st.selectbox(txt["choose_stock"], options=stock_options_list, index=0, key="tech_s")
+    st.subheader("📐 ટેક્નિકલ એનાલિસિસ")
+    t_disp = st.selectbox("વિશ્લેષણ માટે શેર પસંદ કરો:", options=stock_options_list, index=0, key="tech_s")
     t_stock = get_symbol_from_display(t_disp)
     if t_stock:
-        st.success(f"**{t_stock}** {txt['structure_active']}")
+        st.success(f"**{t_stock}** ટેકનિકલ સ્ટ્રક્ચર સક્રિય છે.")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("1H Structure", "BULLISH 🟢")
         c2.metric("4H Structure", "BULLISH 🟢")
@@ -443,14 +364,14 @@ with tab_tech:
         c4.metric("Weekly Structure", "SIDEWAYS 🟡")
 
 with tab_shariah:
-    st.subheader(f"{txt['tab_shariah']} ({total_halal_count}+)")
-    h_filter = st.radio(txt["filter"], [txt["all"], txt["halal_only"], txt["haram_only"]], horizontal=True)
-    search_shariah_disp = st.selectbox(txt["search_stock"], options=stock_options_list, index=0, key="sh_s")
+    st.subheader(f"🕌 શરિયા ડિરેક્ટરી ({total_halal_count}+)")
+    h_filter = st.radio("ફિલ્ટર:", ["બધા શેર્સ", "માત્ર હલાલ", "માત્ર હરામ"], horizontal=True)
+    search_shariah_disp = st.selectbox("🔍 શરિયા લિસ્ટમાં શોધો:", options=stock_options_list, index=0, key="sh_s")
     search_shariah = get_symbol_from_display(search_shariah_disp)
     d_sh = df_shariah_full.copy()
-    if h_filter == txt["halal_only"]: 
+    if h_filter == "માત્ર હલાલ": 
         d_sh = d_sh[d_sh["Shariah Status"].str.contains("Halal")]
-    elif h_filter == txt["haram_only"]: 
+    elif h_filter == "માત્ર હરામ": 
         d_sh = d_sh[d_sh["Shariah Status"].str.contains("Haram")]
     if search_shariah: 
         d_sh = d_sh[d_sh["Stock"] == search_shariah]
@@ -458,19 +379,19 @@ with tab_shariah:
 
 # ==================== DEEP FUNDAMENTAL TAB ====================
 with tab_fund:
-    st.subheader(txt["tab_fund"])
+    st.subheader("📈 ડીપ ફંડામેન્ટલ, TTM, બેલેન્સ શીટ અને ગ્રોથ")
     def_idx = 0
     for idx, opt in enumerate(stock_options_list):
         if "VEDL" in opt:
             def_idx = idx
             break
             
-    fund_disp = st.selectbox(txt["choose_stock"], options=stock_options_list, index=def_idx, key="fund_s")
+    fund_disp = st.selectbox("શેર પસંદ કરો:", options=stock_options_list, index=def_idx, key="fund_s")
     fund_stock = get_symbol_from_display(fund_disp)
     
     if fund_stock:
         clean_name = fund_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_name} {txt['loading']}"):
+        with st.spinner(f"⏳ {clean_name} નો સંપૂર્ણ ફંડામેન્ટલ ડેટા લોડ થઈ રહ્યો છે..."):
             try:
                 t_obj = yf.Ticker(f"{clean_name}.NS", session=session)
                 inf = t_obj.info or {}
@@ -487,7 +408,6 @@ with tab_fund:
             mcap = inf.get('marketCap') or (curr_price * 100000000)
             mcap_cr = round(mcap / 10000000, 2)
             
-            # Financial metrics calculation
             rev = inf.get('totalRevenue') or (fin_df.loc['Total Revenue'].iloc[0] if not fin_df.empty and 'Total Revenue' in fin_df.index else 0)
             net_inc = inf.get('netIncomeToCommon') or (fin_df.loc['Net Income'].iloc[0] if not fin_df.empty and 'Net Income' in fin_df.index else 0)
             
@@ -524,18 +444,18 @@ with tab_fund:
             st.markdown("---")
             sc_col1, sc_col2 = st.columns([2, 5])
             with sc_col1:
-                st.metric(label=txt["rating_label"], value=f"{score} / 10", delta=verdict)
+                st.metric(label="⭐ ૧ થી ૧૦ ફંડામેન્ટલ રેટિંગ સ્કોર", value=f"{score} / 10", delta=verdict)
             with sc_col2:
-                st.write(f"**Overall Health Verdict:** <span style='font-size:18px; font-weight:bold; color: #00c853;'>{verdict}</span>", unsafe_allow_html=True)
+                st.write(f"**ઓવરઓલ હેલ્થ સ્થિતિ:** <span style='font-size:18px; font-weight:bold; color: #00c853;'>{verdict}</span>", unsafe_allow_html=True)
                 st.progress(score / 10.0)
 
-            with st.expander("ℹ️ 10 Points Checklist Score Card Details", expanded=False):
+            with st.expander("ℹ️ ૧૦ પોઇન્ટ્સ ચેકલિસ્ટ સ્કોર કાર્ડ વિગતો", expanded=False):
                 for item in breakdown:
                     st.write(item)
 
             st.markdown("---")
             # 1. TTM & Growth Rates
-            st.markdown(f"#### {txt['ttm_header']}")
+            st.markdown("#### 1️⃣ TTM પર્ફોર્મન્સ અને ગ્રોથ રેટ્સ (વધે = 🟢 | ઘટે = 🔴)")
             g1, g2, g3, g4 = st.columns(4)
             g1.metric("TTM Revenue", f"₹{round(rev/10000000, 2):,} Cr", f"{'+' if rev_g >= 0 else ''}{rev_g}% YoY", delta_color="normal")
             g2.metric("TTM Net Profit", f"₹{round(net_inc/10000000, 2):,} Cr", f"{'+' if net_g >= 0 else ''}{net_g}% YoY", delta_color="normal")
@@ -543,7 +463,7 @@ with tab_fund:
             g4.metric("Earnings Growth (YoY)", f"{net_g}%", f"{'+' if net_g >= 0 else ''}{net_g}%", delta_color="normal")
 
             # 2. Valuation Ratios
-            st.markdown(f"#### {txt['val_header']}")
+            st.markdown("#### 2️⃣ વેલ્યુએશન રેશિયોઝ (Valuation Ratios)")
             v1, v2, v3, v4 = st.columns(4)
             v1.metric("P/E Ratio (TTM)", f"{pe}")
             v2.metric("Price to Book (P/B)", f"{pb}")
@@ -551,7 +471,7 @@ with tab_fund:
             v4.metric("Dividend Yield", f"{round((inf.get('dividendYield') or 0.055)*100, 2)}%")
 
             # 3. Balance Sheet & Cashflow
-            st.markdown(f"#### {txt['bs_header']}")
+            st.markdown("#### 3️⃣ બેલેન્સ શીટ અને કેશ ફ્લો સ્થિતિ")
             b1, b2, b3, b4 = st.columns(4)
             b1.metric("Total Cash", f"₹{cash_cr:,} Cr")
             b2.metric("Total Debt", f"₹{debt_cr:,} Cr", f"-{de_ratio} D/E", delta_color="inverse")
@@ -559,7 +479,7 @@ with tab_fund:
             b4.metric("Current Ratio", f"{cr}")
 
             # 4. Profitability Margins
-            st.markdown(f"#### {txt['prof_header']}")
+            st.markdown("#### 4️⃣ પ્રોફિટેબિલિટી માર્જિન્સ અને રિટર્ન્સ")
             p1, p2, p3, p4 = st.columns(4)
             p1.metric("Return on Equity (ROE)", f"{roe}%")
             p2.metric("Return on Assets (ROA)", f"{roa}%")
@@ -567,49 +487,48 @@ with tab_fund:
             p4.metric("Operating Margin", f"{round(inf.get('operatingMargins', 0.22)*100, 2)}%")
 
             # 5. Shareholding Pattern
-            st.markdown(f"#### {txt['sh_header']}")
+            st.markdown("#### 5️⃣ શેરહોલ્ડિંગ પેટર્ન (FII / DII / પ્રમોટર્સ)")
             s1, s2, s3, s4 = st.columns(4)
             s1.metric("🏢 Promoters Holding", "56.40%", "+0.5% vs Qtr")
             s2.metric("🌍 FII / FPIs Holding", "18.20%", "+1.2% Inflow 🟢")
             s3.metric("🏦 DII / Mutual Funds", "14.80%", "+0.8% Inflow 🟢")
             s4.metric("👥 Public & Retail", "10.60%", "-2.5% Outflow")
 
-            # 6. Raw Audited Financial Statements (Syntax Error Solved Here)
-            st.markdown(f"#### {txt['stmt_header']}")
-            with st.expander("🔍 Click to view Balance Sheet Statements", expanded=False):
+            # 6. Raw Audited Financial Statements
+            st.markdown("#### 6️⃣ ઓડિટેડ બેલેન્સ શીટ અને P&L ટેબલ્સ")
+            with st.expander("🔍 બેલેન્સ શીટ સ્ટેટમેન્ટ્સ જોવા માટે અહીં ક્લિક કરો", expanded=False):
                 if not bs_df.empty:
                     st.dataframe(bs_df.head(10), use_container_width=True)
                 else:
-                    st.info(txt["no_data"])
+                    st.info("ડેટા હાલમાં ઉપલબ્ધ નથી.")
 
-            # 7. Detailed Corporate Business Summary (Translated)
+            # 7. Detailed Corporate Business Summary
             st.markdown("---")
-            st.markdown(f"#### {txt['summary_header']}")
-            raw_summary = inf.get('longBusinessSummary', f"{clean_name} is a leading diversified enterprise.")
-            translated_summary = translate_summary_text(raw_summary, selected_lang)
-            st.info(translated_summary)
+            st.markdown("#### 7️⃣ વિગતવાર કોર્પોરેટ બિઝનેસ સમરી")
+            raw_summary = inf.get('longBusinessSummary', f"{clean_name} એ દેશની અગ્રણી કંપનીઓમાંની એક છે.")
+            st.info(raw_summary)
 
 # ==================== CORPORATE EVENTS (LAST TAB) ====================
 with tab_events:
-    st.subheader(txt["tab_events"])
-    ev_disp = st.selectbox(txt["choose_stock"], options=stock_options_list, index=0, key="event_s")
+    st.subheader("📅 કોર્પોરેટ ઈવેન્ટ્સ અને એક્શન્સ")
+    ev_disp = st.selectbox("શેર પસંદ કરો:", options=stock_options_list, index=0, key="event_s")
     
     sub_res, sub_div, sub_split, sub_bonus, sub_agm = st.tabs([
-        "📊 Results / Earnings", "💰 Dividends", "✂️ Stock Splits", "🎁 Bonus Issues", "🏛️ AGM Meetings"
+        "📊 પરિણામો / Results", "💰 ડિવિડન્ડ / Dividends", "✂️ સ્ટોક સ્પ્લિટ્સ / Splits", "🎁 બોનસ શેર્સ / Bonus", "🏛️ AGM બેઠકો"
     ])
     
     with sub_res:
-        st.markdown("#### 📊 Quarterly Results")
+        st.markdown("#### 📊 ત્રિમાસિક પરિણામો (Quarterly Results)")
         st.dataframe(df_res, use_container_width=True)
     with sub_div:
-        st.markdown("#### 💰 Dividends & Ex-Dates")
+        st.markdown("#### 💰 ડિવિડન્ડ અને એક્સ-ડેટ્સ")
         st.dataframe(df_div, use_container_width=True)
     with sub_split:
-        st.markdown("#### ✂️ Stock Splits")
+        st.markdown("#### ✂️ સ્ટોક સ્પ્લિટ્સ")
         st.dataframe(df_split, use_container_width=True)
     with sub_bonus:
-        st.markdown("#### 🎁 Bonus Shares")
+        st.markdown("#### 🎁 બોનસ શેર્સ")
         st.dataframe(df_bonus, use_container_width=True)
     with sub_agm:
-        st.markdown("#### 🏛️ AGM Meetings")
+        st.markdown("#### 🏛️ AGM વાર્ષિક મીટિંગ્સ")
         st.dataframe(df_agm, use_container_width=True)
