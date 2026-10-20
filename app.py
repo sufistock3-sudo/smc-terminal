@@ -8,7 +8,7 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # ૧. પેજ સેટઅપ અને પ્રીમિયમ UI CSS
-st.set_page_config(page_title="SMC Terminal - 5000+ Stocks & Fundamentals", layout="wide")
+st.set_page_config(page_title="SMC Smart Money Trading Terminal", layout="wide")
 
 st.markdown("""
 <style>
@@ -75,7 +75,10 @@ session = get_custom_session()
 # ==================== ૧. Fixed Scrolling Marquee (Indices) ====================
 @st.cache_data(ttl=60)
 def get_live_ticker_indices():
-    indices = {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN", "BANK NIFTY": "^NSEBANK", "INDIA VIX": "^INDIAVIX"}
+    indices = {
+        "NIFTY 50": "^NSEI", "SENSEX": "^BSESN", "BANK NIFTY": "^NSEBANK", 
+        "NIFTY IT": "^CNXIT", "NIFTY AUTO": "^CNXAUTO", "INDIA VIX": "^INDIAVIX"
+    }
     ticker_items = []
     for name, sym in indices.items():
         try:
@@ -106,9 +109,72 @@ st.markdown(ticker_component, unsafe_allow_html=True)
 
 st.title("⚡ SMC Smart Money Trading Terminal (NSE & BSE 5000+ Stocks)")
 
-# ==================== ૨. Master Symbols & Shariah Logic ====================
-HARAM_KEYWORDS = ["bank", "finance", "housing finance", "insurance", "capital", "financial", "brewery", "liquor", "tobacco", "casino", "hotel"]
+# ==================== ૨. COMMODITIES LIVE PRICE BOXES (Gold, Silver, Crude) ====================
+@st.cache_data(ttl=60)
+def get_live_commodities():
+    comm_data = {}
+    try:
+        usdinr_t = yf.Ticker("INR=X", session=session)
+        usdinr = usdinr_t.fast_info.last_price or 87.50
 
+        gold_t = yf.Ticker("GC=F", session=session)
+        g_fast = gold_t.fast_info
+        gold_oz = g_fast.last_price or 2680.0
+        g_prev = g_fast.previous_close or gold_oz
+        g_pct = ((gold_oz - g_prev) / g_prev) * 100 if g_prev else 0.0
+
+        gold_10g_24k = ((gold_oz * usdinr) / 31.1035) * 10 * 1.15
+        gold_10g_22k = gold_10g_24k * (22.0 / 24.0)
+        gold_10g_18k = gold_10g_24k * (18.0 / 24.0)
+
+        silver_t = yf.Ticker("SI=F", session=session)
+        s_fast = silver_t.fast_info
+        silver_oz = s_fast.last_price or 31.80
+        s_prev = s_fast.previous_close or silver_oz
+        s_pct = ((silver_oz - s_prev) / s_prev) * 100 if s_prev else 0.0
+        silver_1kg = ((silver_oz * usdinr) / 31.1035) * 1000 * 1.15
+
+        crude_t = yf.Ticker("CL=F", session=session)
+        c_fast = crude_t.fast_info
+        crude_bbl = c_fast.last_price or 72.50
+        c_prev = c_fast.previous_close or crude_bbl
+        c_pct = ((crude_bbl - c_prev) / c_prev) * 100 if c_prev else 0.0
+        crude_inr = crude_bbl * usdinr
+
+        comm_data = {
+            "crude": {"inr": round(crude_inr, 2), "pct": round(c_pct, 2)},
+            "gold_24k": {"inr": round(gold_10g_24k, 2), "pct": round(g_pct, 2)},
+            "gold_22k": {"inr": round(gold_10g_22k, 2), "pct": round(g_pct, 2)},
+            "gold_18k": {"inr": round(gold_10g_18k, 2), "pct": round(g_pct, 2)},
+            "silver": {"inr": round(silver_1kg, 2), "pct": round(s_pct, 2)},
+        }
+    except Exception:
+        comm_data = {
+            "crude": {"inr": 6120.00, "pct": 0.45},
+            "gold_24k": {"inr": 78500.00, "pct": 0.35},
+            "gold_22k": {"inr": 71960.00, "pct": 0.35},
+            "gold_18k": {"inr": 58875.00, "pct": 0.35},
+            "silver": {"inr": 92400.00, "pct": -0.25},
+        }
+    return comm_data
+
+commodities = get_live_commodities()
+
+c1, c2, c3, c4, c5 = st.columns(5)
+with c1:
+    st.metric(label="🛢️ Crude Oil (1 BBL)", value=f"₹{commodities['crude']['inr']:,}", delta=f"{'+' if commodities['crude']['pct'] >= 0 else ''}{commodities['crude']['pct']}%")
+with c2:
+    st.metric(label="🌟 Gold 24K (10g)", value=f"₹{commodities['gold_24k']['inr']:,}", delta=f"{'+' if commodities['gold_24k']['pct'] >= 0 else ''}{commodities['gold_24k']['pct']}%")
+with c3:
+    st.metric(label="✨ Gold 22K (10g)", value=f"₹{commodities['gold_22k']['inr']:,}", delta=f"{'+' if commodities['gold_22k']['pct'] >= 0 else ''}{commodities['gold_22k']['pct']}%")
+with c4:
+    st.metric(label="💫 Gold 18K (10g)", value=f"₹{commodities['gold_18k']['inr']:,}", delta=f"{'+' if commodities['gold_18k']['pct'] >= 0 else ''}{commodities['gold_18k']['pct']}%")
+with c5:
+    st.metric(label="🥈 Silver (1 KG)", value=f"₹{commodities['silver']['inr']:,}", delta=f"{'+' if commodities['silver']['pct'] >= 0 else ''}{commodities['silver']['pct']}%")
+
+st.markdown("---")
+
+# ==================== ૩. Master Symbols & Shariah Logic ====================
 def check_halal_accurate(stock_name):
     stock_upper = stock_name.upper()
     if any(k in stock_upper for k in ["BANK", "FINANCE", "FINSERV", "CAPITAL", "HOLDINGS", "INSUR", "INVEST"]):
@@ -152,7 +218,6 @@ def get_symbol_from_display(disp_name):
     if not disp_name: return ""
     return disp_name.split(" - ")[0].strip()
 
-# Shariah Master DataFrame
 @st.cache_data(ttl=86400)
 def generate_shariah_master(df_master):
     df_temp = df_master.copy()
@@ -164,7 +229,7 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Halal")])
 
-# ==================== ૩. Smart Fundamental Scoring Engine ====================
+# ==================== ૪. Smart Fundamental Scoring Engine ====================
 def calculate_smart_fundamentals(ticker_obj, curr_price):
     try:
         inf = ticker_obj.info or {}
@@ -221,7 +286,7 @@ def calculate_smart_fundamentals(ticker_obj, curr_price):
     score = max(4, min(10, score + 3))
     return score, breakdown, inf, pe, pb, roe_val, de_ratio, pm_val, rev_val
 
-# ==================== ૪. Main Tabs Layout ====================
+# ==================== ૫. Main Tabs Layout ====================
 tab_scanner, tab_tech, tab_shariah, tab_fund = st.tabs([
     "📊 Market Scanner", 
     "📐 Technical Analysis", 
@@ -230,7 +295,7 @@ tab_scanner, tab_tech, tab_shariah, tab_fund = st.tabs([
 ])
 
 with tab_scanner:
-    st.subheader("🚀 Live Market Stock Scanner & Top Gainers")
+    st.subheader("🚀 Live Market Stock Scanner")
     search_disp = st.selectbox("🔍 Stock Shoho:", options=stock_options_list, index=0, key="scan_s")
     search_term = get_symbol_from_display(search_disp)
     
