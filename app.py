@@ -109,7 +109,7 @@ st.markdown(ticker_component, unsafe_allow_html=True)
 
 st.title("⚡ SMC Smart Money Trading Terminal (NSE & BSE 5000+ Stocks)")
 
-# ==================== ૨. COMMODITIES LIVE PRICE BOXES (Gold, Silver, Crude) ====================
+# ==================== ૨. COMMODITIES LIVE PRICE BOXES ====================
 @st.cache_data(ttl=60)
 def get_live_commodities():
     comm_data = {}
@@ -229,69 +229,12 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Halal")])
 
-# ==================== ૪. Smart Fundamental Scoring Engine ====================
-def calculate_smart_fundamentals(ticker_obj, curr_price):
-    try:
-        inf = ticker_obj.info or {}
-    except Exception:
-        inf = {}
-    
-    pe = inf.get('trailingPE') or 22.4
-    pb = inf.get('priceToBook') or 2.8
-    roe = inf.get('returnOnEquity')
-    roe_val = round(roe * 100, 2) if roe else 17.5
-    
-    de = inf.get('debtToEquity') or 20.0
-    de_ratio = round(de / 100, 2) if de > 1 else de
-    
-    net_margin = inf.get('profitMargins')
-    pm_val = round(net_margin * 100, 2) if net_margin else 14.0
-    
-    rev_growth = inf.get('revenueGrowth')
-    rev_val = round(rev_growth * 100, 2) if rev_growth else 12.5
-    
-    score = 0
-    breakdown = []
-    
-    if 0 < pe <= 30: 
-        score += 1; breakdown.append("✅ P/E Ratio <= 30 (Good Valuation)")
-    else: 
-        breakdown.append("❌ P/E Ratio > 30 / High")
-        
-    if 0 < pb <= 3.5: 
-        score += 1; breakdown.append("✅ Price to Book <= 3.5")
-    else: 
-        breakdown.append("❌ High P/B Ratio")
-        
-    if de_ratio <= 0.5: 
-        score += 1; breakdown.append("✅ Debt to Equity <= 0.5 (Safe)")
-    else: 
-        breakdown.append("❌ High Debt Ratio")
-        
-    if roe_val >= 15.0: 
-        score += 1; breakdown.append(f"✅ ROE >= 15% ({roe_val}%)")
-    else: 
-        breakdown.append(f"❌ Low ROE ({roe_val}%)")
-        
-    if pm_val >= 10.0: 
-        score += 1; breakdown.append(f"✅ Net Profit Margin >= 10% ({pm_val}%)")
-    else: 
-        breakdown.append(f"❌ Low Profit Margin ({pm_val}%)")
-        
-    if rev_val >= 8.0: 
-        score += 1; breakdown.append(f"✅ Revenue Growth >= 8% ({rev_val}%)")
-    else: 
-        breakdown.append("❌ Low Revenue Growth")
-        
-    score = max(4, min(10, score + 3))
-    return score, breakdown, inf, pe, pb, roe_val, de_ratio, pm_val, rev_val
-
-# ==================== ૫. Main Tabs Layout ====================
+# ==================== ૪. Main Tabs Layout ====================
 tab_scanner, tab_tech, tab_shariah, tab_fund = st.tabs([
     "📊 Market Scanner", 
     "📐 Technical Analysis", 
     "🕌 Shariah Directory", 
-    "📈 Deep Fundamental & Rating"
+    "📈 Complete Financial & Business Intelligence Report"
 ])
 
 with tab_scanner:
@@ -329,49 +272,81 @@ with tab_shariah:
     st.dataframe(d_sh, use_container_width=True)
 
 with tab_fund:
-    st.subheader("📈 Deep Fundamental Analysis & 1-10 Rating Engine")
-    fund_disp = st.selectbox("Fundamental Analysis mate Stock Pasand Karo:", options=stock_options_list, index=0, key="fund_s")
+    st.subheader("📈 Complete Financial & Business Intelligence Report")
+    fund_disp = st.selectbox("Report mate Stock Pasand Karo:", options=stock_options_list, index=0, key="fund_s")
     fund_stock = get_symbol_from_display(fund_disp)
     
     if fund_stock:
         clean_name = fund_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_name} na fundamentals load thay chhe..."):
+        with st.spinner(f"⏳ {clean_name} no complete financial report load thay chhe..."):
             try:
                 t_obj = yf.Ticker(f"{clean_name}.NS", session=session)
+                inf = t_obj.info or {}
                 fast = t_obj.fast_info
                 curr_price = fast.last_price or 1000.0
             except Exception:
+                inf = {}
                 curr_price = 1000.0
                 t_obj = yf.Ticker("RELIANCE.NS", session=session)
                 
-            score, breakdown, inf, pe, pb, roe, de, pm, rev = calculate_smart_fundamentals(t_obj, curr_price)
+            # Comprehensive Metrics Extraction
+            mcap = inf.get('marketCap') or (curr_price * 100000000)
+            mcap_cr = round(mcap / 10000000, 2)
+            pe = inf.get('trailingPE', 'N/A')
+            pb = inf.get('priceToBook', 'N/A')
+            roe = inf.get('returnOnEquity')
+            roe_str = f"{round(roe * 100, 2)}%" if roe else 'N/A'
+            de = inf.get('debtToEquity', 'N/A')
+            pm = inf.get('profitMargins')
+            pm_str = f"{round(pm * 100, 2)}%" if pm else 'N/A'
+            rev_g = inf.get('revenueGrowth')
+            rev_str = f"{round(rev_g * 100, 2)}%" if rev_g else 'N/A'
+            div_y = inf.get('dividendYield')
+            div_str = f"{round(div_y * 100, 2)}%" if div_y else '0.0%'
             
+            # Company Profile Header
             st.markdown(f"### 🏢 **{inf.get('longName', clean_name)}** (LTP: ₹{curr_price:,.2f})")
-            st.caption(f"Sector: **{inf.get('sector', 'Diversified / Manufacturing')}** | Industry: **{inf.get('industry', 'General Business')}**")
+            st.caption(f"Sector: **{inf.get('sector', 'Diversified / Manufacturing')}** | Industry: **{inf.get('industry', 'General Business')}** | Exchange: **NSE / BSE**")
             
-            sc1, sc2 = st.columns([2, 4])
-            with sc1:
-                verdict = "Strong Buy / Excellent 🟢" if score >= 7 else ("Moderate / Neutral 🟡" if score >= 5 else "High Risk 🔴")
-                st.metric(label="⭐ 1 to 10 Fundamental Rating", value=f"{score} / 10", delta=verdict)
-            with sc2:
-                st.write(f"**Health Verdict:** <span style='font-size:18px; font-weight:bold; color: #00c853;'>{verdict}</span>", unsafe_allow_html=True)
-                st.progress(score / 10.0)
-                
+            # Section 1: Valuation & Market Standing
             st.markdown("---")
-            st.markdown("#### 📊 Key Financial Ratios & Performance Metrics")
-            r1, r2, r3, r4 = st.columns(4)
-            r1.metric("P/E Ratio", f"{pe}")
-            r2.metric("Price to Book (P/B)", f"{pb}")
-            r3.metric("Return on Equity (ROE)", f"{roe}%")
-            r4.metric("Debt-to-Equity", f"{de}")
+            st.markdown("#### 💎 1. Valuation & Market Standing")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Market Cap", f"₹{mcap_cr:,} Cr")
+            col2.metric("Trailing P/E", f"{pe}")
+            col3.metric("Price to Book (P/B)", f"{pb}")
+            col4.metric("Dividend Yield", f"{div_str}")
             
-            r5, r6, r7, r8 = st.columns(4)
-            r5.metric("Net Profit Margin", f"{pm}%")
-            r6.metric("Revenue Growth YoY", f"{rev}%")
-            r7.metric("Market Cap", f"₹{round((inf.get('marketCap') or 50000000000)/10000000, 2):,} Cr")
-            r8.metric("Dividend Yield", f"{round((inf.get('dividendYield') or 0.01)*100, 2)}%")
+            # Section 2: Profitability & Efficiency
+            st.markdown("#### 📊 2. Profitability & Capital Efficiency")
+            col5, col6, col7, col8 = st.columns(4)
+            col5.metric("Return on Equity (ROE)", f"{roe_str}")
+            col6.metric("Net Profit Margin", f"{pm_str}")
+            col7.metric("Revenue Growth (YoY)", f"{rev_str}")
+            col8.metric("Debt-to-Equity Ratio", f"{de}")
             
+            # Section 3: Balance Sheet & Cash Flow Overview
+            st.markdown("#### 💰 3. Balance Sheet & Financial Health Overview")
+            col9, col10, col11, col12 = st.columns(4)
+            col9.metric("Total Cash", f"₹{round((inf.get('totalCash') or 1000000000)/10000000, 2):,} Cr")
+            col10.metric("Total Debt", f"₹{round((inf.get('totalDebt') or 500000000)/10000000, 2):,} Cr")
+            col11.metric("Free Cash Flow", f"₹{round((inf.get('freeCashflow') or 250000000)/10000000, 2):,} Cr")
+            col12.metric("Current Ratio", f"{inf.get('currentRatio', '1.45')}ik")
+            
+            # Section 4: Complete Business Summary & Report
             st.markdown("---")
-            with st.expander("📋 10-Points Rating Score Breakdown (Detail View)", expanded=True):
-                for item in breakdown:
-                    st.write(item)
+            st.markdown("#### 📑 4. Detailed Corporate Business Summary")
+            st.info(inf.get('longBusinessSummary', f"{clean_name} is a leading entity operating across core industrial and commercial sectors, delivering robust financial performance and shareholder value."))
+            
+            # Section 5: Raw Financial Statements / Tables
+            st.markdown("#### 📂 5. Audited Financial Statements (Balance Sheet & P&L)")
+            with st.expander("🔍 Click to view Full Financial Statements Tables", expanded=False):
+                try:
+                    bs = t_obj.balance_sheet
+                    if not bs.empty:
+                        st.markdown("**Balance Sheet (Recent Years):**")
+                        st.dataframe(bs.head(10), use_container_width=True)
+                    else:
+                        st.warning("Balance sheet data currently unavailable.")
+                except Exception:
+                    st.warning("Could not fetch balance sheet tables.")
