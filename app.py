@@ -177,30 +177,30 @@ with c5:
 
 st.markdown("---")
 
-# ==================== ૩. CORE ACTIVITY & 5 FINANCIAL CRITERIA ENGINE ====================
+# ==================== ૩. ISLAMIC RULES & 5 SHARIAH FINANCIAL SCREENS ====================
 def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
     s = stock_name.upper()
     
-    # 0. Core Business Activity Status
+    # ૧. બિઝનેસ સ્ક્રીનિંગ (ઇસ્લામિક નિયમ મુજબ મૂળ બિઝનેસ હલાલ હોવો અનિવાર્ય છે)
     core_permissible = True
     core_activity_reason = ""
     
     if any(k in s for k in ["BANK", "FINANCE", "FINSERV", "CAPITAL", "HOLDINGS", "INSUR", "MUTUAL", "INVEST"]):
         core_permissible = False
-        core_activity_reason = "Core activities involve conventional banking, interest-lending (Riba), and financial services."
+        core_activity_reason = "મુખ્ય વ્યવસાય વ્યાજખોરી (રિબા), પરંપરાગત બેંકિંગ અને શરિયા વિરુદ્ધ નાણાકીય સેવાઓ સાથે જોડાયેલ છે."
     elif s in ["ITC", "GODFREYPHLP", "VSTIND"]:
         core_permissible = False
-        core_activity_reason = "Core activities involve production and distribution of tobacco and cigarette products."
+        core_activity_reason = "મુખ્ય વ્યવસાય તમાકુ, સિગારેટ અને નશીલા ઉત્પાદનોનું ઉત્પાદન અને વેચાણ છે."
     elif s in ["UBL", "UNITDSPR", "RADICO", "TI"]:
         core_permissible = False
-        core_activity_reason = "Core activities involve alcoholic beverages, breweries, and distilleries."
+        core_activity_reason = "મુખ્ય વ્યવસાય દારૂ, બ્રુઅરીઝ અને આલ્કોહોલિક પીણાંના ઉત્પાદન સાથે જોડાયેલ છે."
     else:
         core_permissible = True
-        core_activity_reason = "The primary operations and business activities are Sharia permissible (Halal goods & services)."
+        core_activity_reason = "કંપનીનો મુખ્ય વ્યવસાય ઇસ્લામિક શરિયા મુજબ માન્ય (હલાલ પ્રોડક્ટ્સ અને સર્વિસીસ) છે."
 
-    # Wipro Case
+    # Wipro Case (સ્ક્રીનશોટ પ્રમાણિત ડેટા)
     if s == "WIPRO":
-        core_activity_text = "Wipro Limited operates as an information technology (IT), consulting, and business process services company worldwide. It operates through IT Services and IT Products segments. The IT Services segment offers IT and IT-enabled services, including digital strategy advisory, customer-centric design, technology and IT consulting, custom application design, development, re-engineering and maintenance, systems integration, package implementation, cloud and infrastructure, business process, cloud, mobility and analytics, research and development, and hardware and software design services to enterprises. It serves customers in various industry sectors."
+        core_activity_text = "Wipro Limited operates as an information technology (IT), consulting, and business process services company worldwide. It operates through IT Services and IT Products segments. The IT Services segment offers IT-enabled services, custom application design, cloud infrastructure, and software consulting."
         return "❌ Non-Compliant", True, core_activity_text, [
             "❌ 1. Impermissible Income to Total Revenue > 5% (Interest Income ₹2,836.70 Cr fails the threshold)",
             "✅ 2. Interest-bearing Debt to Total Assets < 33% (11.87% Pass)",
@@ -209,7 +209,7 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
             "✅ 5. Net Liquid Assets < Market Capitalisation (Pass)"
         ]
 
-    # સામાન્ય ફાઇનાન્સિયલ રેશિયો સ્ક્રિનીંગ
+    # સામાન્ય ફાઇનાન્સિયલ રેશિયો સ્ક્રિનીંગ (૫ શરતો)
     criteria_results = []
     is_compliant = core_permissible
 
@@ -218,7 +218,7 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
         debt = inf.get('totalDebt') or 0
         rev = inf.get('totalRevenue') or 1
         
-        # 1. Impermissible Income < 5%
+        # શરત ૧: બિન-માન્ય/વ્યાજની આવક < 5%
         int_inc = inf.get('interestIncome', 0) or (rev * 0.02)
         imp_ratio = (int_inc / rev) * 100
         if imp_ratio < 5.0:
@@ -227,7 +227,7 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
             is_compliant = False
             criteria_results.append(f"❌ 1. High Impermissible Income: {imp_ratio:.2f}% (>= 5%)")
 
-        # 2. Interest Debt to Assets < 33%
+        # શરત ૨: વ્યાજી દેવું / કુલ એસેટ્સ < 33%
         assets = 1
         if bs_df is not None and not bs_df.empty and 'Total Assets' in bs_df.index:
             assets = bs_df.loc['Total Assets'].iloc[0]
@@ -241,7 +241,7 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
             is_compliant = False
             criteria_results.append(f"❌ 2. High Debt to Assets: {debt_to_assets:.2f}% (>= 33%)")
 
-        # 3. Non-Compliant Investments < 33%
+        # શરત ૩: બિન-માન્ય રોકાણો / કુલ એસેટ્સ < 33%
         cash = inf.get('totalCash') or (assets * 0.15)
         inv_ratio = (cash / assets) * 100
         if inv_ratio < 33.0:
@@ -250,10 +250,10 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
             is_compliant = False
             criteria_results.append(f"❌ 3. High Non-Compliant Investments: {inv_ratio:.2f}% (>= 33%)")
 
-        # 4. Illiquid Assets > 20%
+        # શરત ૪: ઇલિક્વિડ એસેટ્સ / કુલ એસેટ્સ > 20%
         criteria_results.append("✅ 4. Illiquid Assets to Total Assets > 20%")
 
-        # 5. Net Liquid Assets < Market Cap
+        # શરત ૫: નેટ લિક્વિડ એસેટ્સ < માર્કેટ કેપ
         criteria_results.append("✅ 5. Net Liquid Assets < Market Capitalisation")
         
         bus_summary = inf.get('longBusinessSummary', core_activity_reason)
@@ -420,7 +420,7 @@ with tab_tech:
         c3.metric("Daily Structure", "BULLISH 🟢")
         c4.metric("Weekly Structure", "SIDEWAYS 🟡")
 
-# ==================== શરિયા ડિરેક્ટરી (WITH CORE ACTIVITY BANNER & 5 FORMULAS) ====================
+# ==================== શરિયા ડિરેક્ટરી ====================
 with tab_shariah:
     st.subheader(f"🕌 Shariah Compliance Screener (Total Halal: {total_halal_count}+)")
     
@@ -441,19 +441,19 @@ with tab_shariah:
             st_verdict, core_permissible, bus_summary, st_rules = evaluate_5_shariah_criteria(clean_sh, inf_sh, bs_sh)
             
             verdict_color = "#00c853" if "Compliant" in st_verdict and "Non" not in st_verdict else "#ff3d00"
-            st.markdown(f"### 🏢 **{clean_sh}** Status: <span style='color:{verdict_color}; font-weight:bold;'>{st_verdict}</span>", unsafe_allow_html=True)
+            st.markdown(f"### 🏢 **{clean_sh}** Final Status: <span style='color:{verdict_color}; font-weight:bold;'>{st_verdict}</span>", unsafe_allow_html=True)
             
-            # CORE ACTIVITIES BANNER (સ્ક્રીનશોટ મુજબ)
+            # CORE ACTIVITIES BANNER (મુખ્ય બિઝનેસ હલાલ છે કે નહીં તે ચકાસણી)[cite: 27]
             st.markdown('<div class="sharia-card">', unsafe_allow_html=True)
             if core_permissible:
-                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 WE FOUND CORE ACTIVITIES OF COMPANY IS SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True)
+                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 WE FOUND CORE ACTIVITIES OF COMPANY IS SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True) #[cite: 27]
             else:
                 st.markdown("<h4 style='color: #ff3d00; margin-bottom: 12px;'>❌ WE FOUND CORE ACTIVITIES OF COMPANY IS NOT SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True)
-            st.write(bus_summary)
+            st.write(f"**બિઝનેસ વર્ણન:** {bus_summary}")
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # ૫ શરિયા ફોર્મ્યુલા અને વેરિફિકેશન
-            st.markdown("#### 📋 5 Shariah Financial Formulas & Verification:")
+            # ૫ શરિયા નાણાકીય શરતો[cite: 22, 23, 24, 25, 26]
+            st.markdown("#### 📋 5 Shariah Financial Formulas & Verification (નાણાકીય શરતો):")
             for rule in st_rules:
                 st.write(rule)
             st.divider()
@@ -594,7 +594,7 @@ with tab_fund:
             # 7. Detailed Corporate Business Summary
             st.markdown("---")
             st.markdown("#### 7️⃣ વિગતવાર કોર્પોરેટ બિઝનેસ સમરી")
-            raw_summary = inf.get('longBusinessSummary', f"{clean_name} એ ભારતની અગ્રણી આઈટી સર્વિસીસ કંપની છે.")
+            raw_summary = inf.get('longBusinessSummary', f"{clean_name} એ ભારતની અગ્રણી કંપનીઓમાંની એક છે.")
             st.info(raw_summary)
 
 # ==================== CORPORATE EVENTS (LAST TAB) ====================
