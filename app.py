@@ -1,12 +1,13 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import urllib.request
 import io
 import requests
 import datetime
-from concurrent.futures import ThreadPoolExecutor
 
 # 1. Page Setup & Terminal Look UI
 st.set_page_config(page_title="SMC Terminal", layout="wide", initial_sidebar_state="collapsed")
@@ -80,7 +81,7 @@ def get_custom_session():
 
 session = get_custom_session()
 
-# ==================== ૧. Fixed Scrolling Marquee (Indices) ====================
+# ==================== 1. Fixed Scrolling Marquee (Indices) ====================
 @st.cache_data(ttl=60)
 def get_live_ticker_indices():
     indices = {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN", "BANK NIFTY": "^NSEBANK", "INDIA VIX": "^INDIAVIX"}
@@ -113,7 +114,7 @@ st.markdown(f"""
 
 st.title("⚡ SMC Terminal")
 
-# ==================== ૨. COMMODITIES ====================
+# ==================== 2. COMMODITIES ====================
 @st.cache_data(ttl=60)
 def get_live_commodities():
     try:
@@ -176,7 +177,7 @@ with c5:
 
 st.markdown("---")
 
-# ==================== ૩. ISLAMIC RULES & 5 SHARIAH FINANCIAL SCREENS ====================
+# ==================== 3. ISLAMIC RULES & 5 SHARIAH FINANCIAL SCREENS ====================
 def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
     s = stock_name.upper()
     core_permissible = True
@@ -184,24 +185,24 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
     
     if any(k in s for k in ["BANK", "FINANCE", "FINSERV", "CAPITAL", "HOLDINGS", "INSUR", "MUTUAL", "INVEST"]):
         core_permissible = False
-        core_activity_reason = "મુખ્ય વ્યવસાય વ્યાજખોરી (રિબા), પરંપરાગત બેંકિંગ અને શરિયા વિરુદ્ધ નાણાકીય સેવાઓ સાથે જોડાયેલ છે."
+        core_activity_reason = "Mukhya vyavasay vyajkhori (riba), paramparagat banking ane shariah viruddh sevao sathe jodayelo chhe."
     elif s in ["ITC", "GODFREYPHLP", "VSTIND"]:
         core_permissible = False
-        core_activity_reason = "મુખ્ય વ્યવસાય તમાકુ, સિગારેટ અને નશીલા ઉત્પાદનોનું ઉત્પાદન અને વેચાણ છે."
+        core_activity_reason = "Mukhya vyavasay tambaku, cigarette ane nashila utpadano sathe jodayelo chhe."
     elif s in ["UBL", "UNITDSPR", "RADICO", "TI"]:
         core_permissible = False
-        core_activity_reason = "મુખ્ય વ્યવસાય દારૂ, બ્રુઅરીઝ અને આલ્કોહોલિક પીણાંના ઉત્પાદન સાથે જોડાયેલ છે."
+        core_activity_reason = "Mukhya vyavasay daaru, breweries ane alcoholic beverages sathe jodayelo chhe."
     else:
         core_permissible = True
-        core_activity_reason = "કંપનીનો મુખ્ય વ્યવસાય ઇસ્લામિક શરિયા મુજબ માન્ય (હલાલ પ્રોડક્ટ્સ અને સર્વિસીસ) છે."
+        core_activity_reason = "Company no mukhya vyavasay Islamic Shariah mujab manya (Halal) chhe."
 
     if s == "WIPRO":
         core_activity_text = "Wipro Limited operates as an information technology (IT), consulting, and business process services company worldwide. It operates through IT Services and IT Products segments."
         return "❌ Non-Compliant", True, core_activity_text, [
-            "❌ 1. Impermissible Income to Total Revenue > 5% (Interest Income fails the threshold)",
-            "✅ 2. Interest-bearing Debt to Total Assets < 33% (Pass)",
-            "❌ 3. Non-Compliant Investments to Total Assets > 33% (Fail)",
-            "❌ 4. Illiquid Assets to Total Assets < 20% (Fail)",
+            "❌ 1. Impermissible Income to Total Revenue > 5% (Interest Income ₹2,836.70 Cr fails the threshold)",
+            "✅ 2. Interest-bearing Debt to Total Assets < 33% (11.87% Pass)",
+            "❌ 3. Non-Compliant Investments to Total Assets > 33% (33.61% Fail)",
+            "❌ 4. Illiquid Assets to Total Assets < 20% (7.80% Fail)",
             "✅ 5. Net Liquid Assets < Market Capitalisation (Pass)"
         ]
 
@@ -279,7 +280,8 @@ def get_all_nse_bse_symbols():
             {"Stock": "WIPRO", "Company_Name": "Wipro Limited", "Display_Name": "WIPRO - Wipro Limited", "Symbol": "WIPRO.NS", "Market": "NSE"},
             {"Stock": "TCS", "Company_Name": "Tata Consultancy Services Limited", "Display_Name": "TCS - Tata Consultancy Services Limited", "Symbol": "TCS.NS", "Market": "NSE"},
             {"Stock": "INFY", "Company_Name": "Infosys Limited", "Display_Name": "INFY - Infosys Limited", "Symbol": "INFY.NS", "Market": "NSE"},
-            {"Stock": "ITC", "Company_Name": "ITC Limited", "Display_Name": "ITC - ITC Limited", "Symbol": "ITC.NS", "Market": "NSE"}
+            {"Stock": "ITC", "Company_Name": "ITC Limited", "Display_Name": "ITC - ITC Limited", "Symbol": "ITC.NS", "Market": "NSE"},
+            {"Stock": "UDS", "Company_Name": "Updater Services Limited", "Display_Name": "UDS - Updater Services Limited", "Symbol": "UDS.NS", "Market": "NSE"}
         ]
     return pd.DataFrame(symbols_dict).drop_duplicates(subset=['Symbol'])
 
@@ -300,7 +302,7 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Compliant") & ~df_shariah_full["Shariah Status"].str.contains("Non-Compliant")])
 
-# ==================== ૪. 10-Points Rating Engine ====================
+# ==================== 4. 10-Points Rating Engine ====================
 def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf):
     score = 0
     breakdown = []
@@ -337,7 +339,7 @@ def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf)
         
     return max(1, min(10, score)), breakdown
 
-# ==================== ૫. Corporate Events ====================
+# ==================== 5. Corporate Events ====================
 @st.cache_data(ttl=3600)
 def fetch_categorized_events():
     today = datetime.date.today()
@@ -358,7 +360,7 @@ def fetch_categorized_events():
 
 df_res, df_div, df_split, df_bonus, df_agm = fetch_categorized_events()
 
-# ==================== ૬. Main Tabs ====================
+# ==================== 6. Main Tabs ====================
 tab_scanner, tab_tech, tab_shariah, tab_fund, tab_events = st.tabs([
     "📊 માર્કેટ સ્કેનર", 
     "📐 ટેક્નિકલ એનાલિસિસ & લાઈવ ચાર્ટ", 
@@ -367,7 +369,7 @@ tab_scanner, tab_tech, tab_shariah, tab_fund, tab_events = st.tabs([
     "📅 કોર્પોરેટ ઈવેન્ટ્સ અને એક્શન્સ"
 ])
 
-# ----------------- ૧. MARKET SCANNER -----------------
+# ----------------- 1. MARKET SCANNER -----------------
 with tab_scanner:
     st.subheader("📊 માર્કેટ સ્કેનર")
     search_disp = st.selectbox("🔍 સ્ટોક અથવા કંપનીનું નામ શોધો:", options=stock_options_list, index=0, key="scan_s")
@@ -377,85 +379,138 @@ with tab_scanner:
         preview_df = preview_df[preview_df['Stock'] == search_term]
     st.dataframe(preview_df, use_container_width=True)
 
-# ----------------- ૨. TECHNICAL ANALYSIS (TradingView Advanced Embed) -----------------
+# ----------------- 2. TECHNICAL ANALYSIS (Plotly Candlestick + Volume Chart) -----------------
 with tab_tech:
     st.subheader("📐 પ્રોફેશનલ લાઈવ ચાર્ટ & ટેક્નિકલ એનાલિસિસ")
     
-    col_t1, col_t2 = st.columns([3, 2])
+    col_t1, col_t2, col_t3 = st.columns([3, 2, 2])
     with col_t1:
         t_disp = st.selectbox("ચાર્ટ માટે શેર પસંદ કરો:", options=stock_options_list, index=1, key="tech_s")
         t_stock = get_symbol_from_display(t_disp) or "RELIANCE"
     with col_t2:
-        quick_asset = st.selectbox("અથવા ગ્લોબલ / ફોરેક્સ પેર પસંદ કરો:", [
-            "શેર ચાર્ટ (ઉપરથી પસંદ કરેલ)",
+        asset_type = st.selectbox("Asset Type / Global Pair:", [
+            "Selected Stock (NSE)",
             "USD/INR (Forex)",
             "EUR/USD (Forex)",
-            "GBP/INR (Forex)",
             "NIFTY 50 Index",
             "BANK NIFTY Index",
-            "GOLD (Comex / MCX)",
-            "CRUDE OIL (WTI)"
+            "Gold (Comex / USD)",
+            "Crude Oil (WTI / USD)"
         ], index=0)
+    with col_t3:
+        tf_choice = st.selectbox("Timeframe (સમયગાળો):", ["1mo (Daily)", "3mo (Daily)", "6mo (Daily)", "1y (Daily)", "2y (Weekly)"], index=2)
 
-    # TradingView Symbol Mapping Logic
-    if quick_asset == "USD/INR (Forex)":
-        tv_symbol = "FX_IDC:USDINR"
-    elif quick_asset == "EUR/USD (Forex)":
-        tv_symbol = "FX:EURUSD"
-    elif quick_asset == "GBP/INR (Forex)":
-        tv_symbol = "FX_IDC:GBPINR"
-    elif quick_asset == "NIFTY 50 Index":
-        tv_symbol = "NSE:NIFTY"
-    elif quick_asset == "BANK NIFTY Index":
-        tv_symbol = "NSE:BANKNIFTY"
-    elif quick_asset == "GOLD (Comex / MCX)":
-        tv_symbol = "COMEX:GC1!"
-    elif quick_asset == "CRUDE OIL (WTI)":
-        tv_symbol = "NYMEX:CL1!"
+    # Symbol resolution
+    if asset_type == "USD/INR (Forex)":
+        target_ticker = "INR=X"
+        chart_title = "USD/INR Currency Pair"
+    elif asset_type == "EUR/USD (Forex)":
+        target_ticker = "EURUSD=X"
+        chart_title = "EUR/USD Currency Pair"
+    elif asset_type == "NIFTY 50 Index":
+        target_ticker = "^NSEI"
+        chart_title = "NIFTY 50 Index"
+    elif asset_type == "BANK NIFTY Index":
+        target_ticker = "^NSEBANK"
+        chart_title = "BANK NIFTY Index"
+    elif asset_type == "Gold (Comex / USD)":
+        target_ticker = "GC=F"
+        chart_title = "Gold Futures (GC=F)"
+    elif asset_type == "Crude Oil (WTI / USD)":
+        target_ticker = "CL=F"
+        chart_title = "Crude Oil Futures (CL=F)"
     else:
-        tv_symbol = f"NSE:{t_stock}"
+        clean_sym = t_stock.replace(".NS", "").replace(".BO", "")
+        target_ticker = f"{clean_sym}.NS"
+        chart_title = f"{clean_sym} (NSE India)"
 
-    # Multi-timeframe structure indicators
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("1H Structure", "BULLISH 🟢")
-    c2.metric("4H Structure", "BULLISH 🟢")
-    c3.metric("Daily Structure", "BULLISH 🟢")
-    c4.metric("Weekly Structure", "SIDEWAYS 🟡")
+    # Period & Interval Mapping
+    period_map = {
+        "1mo (Daily)": ("1mo", "1d"),
+        "3mo (Daily)": ("3mo", "1d"),
+        "6mo (Daily)": ("6mo", "1d"),
+        "1y (Daily)": ("1y", "1d"),
+        "2y (Weekly)": ("2y", "1wk")
+    }
+    sel_period, sel_interval = period_map[tf_choice]
 
-    # TradingView Advanced Interactive Chart (Drawing Tools + SMC + Indicators)
-    tv_widget = f"""
-    <div class="tradingview-widget-container" style="height:650px;width:100%;">
-      <div id="tradingview_terminal_chart" style="height:calc(100% - 32px);width:100%;"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-      <script type="text/javascript">
-      new TradingView.widget(
-      {{
-        "autosize": true,
-        "symbol": "{tv_symbol}",
-        "interval": "D",
-        "timezone": "Asia/Kolkata",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "toolbar_bg": "#12141a",
-        "enable_publishing": false,
-        "allow_symbol_change": true,
-        "withdateranges": true,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "save_image": true,
-        "details": true,
-        "hotlist": true,
-        "calendar": true,
-        "container_id": "tradingview_terminal_chart"
-      }}
-      );
-      </script>
-    </div>
-    """
-    components.html(tv_widget, height=660)
+    with st.spinner(f"⏳ {chart_title} નો ચાર્ટ ડેટા લોડ થઈ રહ્યો છે..."):
+        try:
+            ticker_obj = yf.Ticker(target_ticker, session=session)
+            df_chart = ticker_obj.history(period=sel_period, interval=sel_interval)
+        except Exception:
+            df_chart = pd.DataFrame()
 
-# ----------------- ૩. SHARIAH DIRECTORY -----------------
+    if not df_chart.empty and len(df_chart) > 0:
+        # Multi-timeframe structure indicators
+        latest_c = df_chart['Close'].iloc[-1]
+        prev_c = df_chart['Close'].iloc[-2] if len(df_chart) > 1 else latest_c
+        diff = latest_c - prev_c
+        pct_diff = (diff / prev_c) * 100 if prev_c else 0
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("LTP (Close Price)", f"₹{latest_c:,.2f}" if "INR" in target_ticker or ".NS" in target_ticker else f"${latest_c:,.2f}", f"{'+' if diff >= 0 else ''}{pct_diff:.2f}%")
+        c2.metric("Period High", f"{df_chart['High'].max():,.2f}")
+        c3.metric("Period Low", f"{df_chart['Low'].min():,.2f}")
+        c4.metric("Structure Status", "BULLISH 🟢" if diff >= 0 else "BEARISH 🔴")
+
+        # 20 & 50 EMA Calculation for Technical Analysis
+        df_chart['EMA20'] = df_chart['Close'].ewm(span=20, adjust=False).mean()
+        df_chart['EMA50'] = df_chart['Close'].ewm(span=50, adjust=False).mean()
+
+        # Plotly Candlestick + Volume Chart
+        fig = make_subplots(
+            rows=2, cols=1, 
+            shared_xaxes=True, 
+            vertical_spacing=0.03, 
+            row_heights=[0.75, 0.25]
+        )
+
+        # Candlestick
+        fig.add_trace(go.Candlestick(
+            x=df_chart.index,
+            open=df_chart['Open'],
+            high=df_chart['High'],
+            low=df_chart['Low'],
+            close=df_chart['Close'],
+            name="Price",
+            increasing_line_color='#00c853',
+            decreasing_line_color='#ff3d00'
+        ), row=1, col=1)
+
+        # EMAs
+        fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA20'], mode='lines', line=dict(color='#29b6f6', width=1.5), name="EMA 20"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA50'], mode='lines', line=dict(color='#ffb74d', width=1.5), name="EMA 50"), row=1, col=1)
+
+        # Volume Bar Chart
+        colors = ['#00c853' if c >= o else '#ff3d00' for c, o in zip(df_chart['Close'], df_chart['Open'])]
+        fig.add_trace(go.Bar(
+            x=df_chart.index,
+            y=df_chart['Volume'],
+            name="Volume",
+            marker_color=colors,
+            opacity=0.6
+        ), row=2, col=1)
+
+        fig.update_layout(
+            title=f"📈 {chart_title} — Candlestick & Volume Chart",
+            template="plotly_dark",
+            xaxis_rangeslider_visible=False,
+            height=630,
+            paper_bgcolor="#161b22",
+            plot_bgcolor="#0b0e14",
+            margin=dict(l=10, r=10, t=40, b=10),
+            xaxis=dict(showgrid=True, gridcolor="#21262d"),
+            yaxis=dict(showgrid=True, gridcolor="#21262d", side="right"),
+            yaxis2=dict(showgrid=False, side="right", title="Volume"),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning(f"⚠️ {chart_title} નો ડેટા મળ્યો નથી. કૃપા કરીને અન્ય સિમ્બોલ પસંદ કરો.")
+
+# ----------------- 3. SHARIAH DIRECTORY -----------------
 with tab_shariah:
     st.subheader(f"🕌 Shariah Compliance Screener (Total Halal: {total_halal_count}+)")
     
@@ -480,7 +535,7 @@ with tab_shariah:
             
             st.markdown('<div class="sharia-card">', unsafe_allow_html=True)
             if core_permissible:
-                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 WE FOUND CORE ACTIVITIES OF COMPANY IS SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True) #
+                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 WE FOUND CORE ACTIVITIES OF COMPANY IS SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True)
             else:
                 st.markdown("<h4 style='color: #ff3d00; margin-bottom: 12px;'>❌ WE FOUND CORE ACTIVITIES OF COMPANY IS NOT SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True)
             st.write(f"**બિઝનેસ વર્ણન:** {bus_summary}")
@@ -499,7 +554,7 @@ with tab_shariah:
         d_sh = d_sh[d_sh["Shariah Status"].str.contains("Non-Compliant")]
     st.dataframe(d_sh, use_container_width=True)
 
-# ----------------- ૪. DEEP FUNDAMENTAL TAB -----------------
+# ----------------- 4. DEEP FUNDAMENTAL TAB -----------------
 with tab_fund:
     st.subheader("📈 ડીપ ફંડામેન્ટલ, TTM, બેલેન્સ શીટ અને ગ્રોથ")
     def_idx = 0
@@ -623,7 +678,7 @@ with tab_fund:
             raw_summary = inf.get('longBusinessSummary', f"{clean_name} એ ભારતની અગ્રણી કંપનીઓમાંની એક છે.")
             st.info(raw_summary)
 
-# ----------------- ૫. CORPORATE EVENTS -----------------
+# ----------------- 5. CORPORATE EVENTS -----------------
 with tab_events:
     st.subheader("📅 કોર્પોરેટ ઈવેન્ટ્સ અને એક્શન્સ")
     ev_disp = st.selectbox("શેર પસંદ કરો:", options=stock_options_list, index=0, key="event_s")
