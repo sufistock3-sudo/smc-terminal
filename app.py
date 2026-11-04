@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import urllib.request
@@ -8,7 +9,7 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # 1. Page Setup & Terminal Look UI
-st.set_page_config(page_title="SMC Terminal", layout="wide")
+st.set_page_config(page_title="SMC Terminal", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -112,10 +113,9 @@ st.markdown(f"""
 
 st.title("⚡ SMC Terminal")
 
-# ==================== ૨. COMMODITIES (18K, 22K, Hallmark 24K, Silver, Crude) ====================
+# ==================== ૨. COMMODITIES ====================
 @st.cache_data(ttl=60)
 def get_live_commodities():
-    comm_data = {}
     try:
         usdinr_t = yf.Ticker("INR=X", session=session)
         usdinr = usdinr_t.fast_info.last_price or 87.50
@@ -144,7 +144,7 @@ def get_live_commodities():
         c_pct = ((crude_bbl - c_prev) / c_prev) * 100 if c_prev else 0.0
         crude_inr = crude_bbl * usdinr
 
-        comm_data = {
+        return {
             "gold_18k": {"inr": round(gold_10g_18k, 2), "pct": round(g_pct, 2)},
             "gold_22k": {"inr": round(gold_10g_22k, 2), "pct": round(g_pct, 2)},
             "gold_24k": {"inr": round(gold_10g_24k, 2), "pct": round(g_pct, 2)},
@@ -152,14 +152,13 @@ def get_live_commodities():
             "crude": {"inr": round(crude_inr, 2), "pct": round(c_pct, 2)},
         }
     except Exception:
-        comm_data = {
+        return {
             "gold_18k": {"inr": 58875.00, "pct": 0.35},
             "gold_22k": {"inr": 71960.00, "pct": 0.35},
             "gold_24k": {"inr": 78500.00, "pct": 0.35},
             "silver": {"inr": 92400.00, "pct": -0.25},
             "crude": {"inr": 6120.00, "pct": 0.45},
         }
-    return comm_data
 
 commodities = get_live_commodities()
 
@@ -180,8 +179,6 @@ st.markdown("---")
 # ==================== ૩. ISLAMIC RULES & 5 SHARIAH FINANCIAL SCREENS ====================
 def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
     s = stock_name.upper()
-    
-    # ૧. બિઝનેસ સ્ક્રીનિંગ (ઇસ્લામિક નિયમ મુજબ મૂળ બિઝનેસ હલાલ હોવો અનિવાર્ય છે)
     core_permissible = True
     core_activity_reason = ""
     
@@ -198,18 +195,16 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
         core_permissible = True
         core_activity_reason = "કંપનીનો મુખ્ય વ્યવસાય ઇસ્લામિક શરિયા મુજબ માન્ય (હલાલ પ્રોડક્ટ્સ અને સર્વિસીસ) છે."
 
-    # Wipro Case (સ્ક્રીનશોટ પ્રમાણિત ડેટા)
     if s == "WIPRO":
-        core_activity_text = "Wipro Limited operates as an information technology (IT), consulting, and business process services company worldwide. It operates through IT Services and IT Products segments. The IT Services segment offers IT-enabled services, custom application design, cloud infrastructure, and software consulting."
+        core_activity_text = "Wipro Limited operates as an information technology (IT), consulting, and business process services company worldwide. It operates through IT Services and IT Products segments."
         return "❌ Non-Compliant", True, core_activity_text, [
-            "❌ 1. Impermissible Income to Total Revenue > 5% (Interest Income ₹2,836.70 Cr fails the threshold)",
-            "✅ 2. Interest-bearing Debt to Total Assets < 33% (11.87% Pass)",
-            "❌ 3. Non-Compliant Investments to Total Assets > 33% (33.61% Fail)",
-            "❌ 4. Illiquid Assets to Total Assets < 20% (7.80% Fail)",
+            "❌ 1. Impermissible Income to Total Revenue > 5% (Interest Income fails the threshold)",
+            "✅ 2. Interest-bearing Debt to Total Assets < 33% (Pass)",
+            "❌ 3. Non-Compliant Investments to Total Assets > 33% (Fail)",
+            "❌ 4. Illiquid Assets to Total Assets < 20% (Fail)",
             "✅ 5. Net Liquid Assets < Market Capitalisation (Pass)"
         ]
 
-    # સામાન્ય ફાઇનાન્સિયલ રેશિયો સ્ક્રિનીંગ (૫ શરતો)
     criteria_results = []
     is_compliant = core_permissible
 
@@ -218,7 +213,6 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
         debt = inf.get('totalDebt') or 0
         rev = inf.get('totalRevenue') or 1
         
-        # શરત ૧: બિન-માન્ય/વ્યાજની આવક < 5%
         int_inc = inf.get('interestIncome', 0) or (rev * 0.02)
         imp_ratio = (int_inc / rev) * 100
         if imp_ratio < 5.0:
@@ -227,7 +221,6 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
             is_compliant = False
             criteria_results.append(f"❌ 1. High Impermissible Income: {imp_ratio:.2f}% (>= 5%)")
 
-        # શરત ૨: વ્યાજી દેવું / કુલ એસેટ્સ < 33%
         assets = 1
         if bs_df is not None and not bs_df.empty and 'Total Assets' in bs_df.index:
             assets = bs_df.loc['Total Assets'].iloc[0]
@@ -241,7 +234,6 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
             is_compliant = False
             criteria_results.append(f"❌ 2. High Debt to Assets: {debt_to_assets:.2f}% (>= 33%)")
 
-        # શરત ૩: બિન-માન્ય રોકાણો / કુલ એસેટ્સ < 33%
         cash = inf.get('totalCash') or (assets * 0.15)
         inv_ratio = (cash / assets) * 100
         if inv_ratio < 33.0:
@@ -250,12 +242,8 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
             is_compliant = False
             criteria_results.append(f"❌ 3. High Non-Compliant Investments: {inv_ratio:.2f}% (>= 33%)")
 
-        # શરત ૪: ઇલિક્વિડ એસેટ્સ / કુલ એસેટ્સ > 20%
         criteria_results.append("✅ 4. Illiquid Assets to Total Assets > 20%")
-
-        # શરત ૫: નેટ લિક્વિડ એસેટ્સ < માર્કેટ કેપ
         criteria_results.append("✅ 5. Net Liquid Assets < Market Capitalisation")
-        
         bus_summary = inf.get('longBusinessSummary', core_activity_reason)
     else:
         criteria_results = [
@@ -317,55 +305,35 @@ def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf)
     score = 0
     breakdown = []
     
-    if pe and 0 < pe <= 30:
-        score += 1; breakdown.append("✅ 1. P/E Ratio <= 30 (Good Valuation)")
-    else:
-        breakdown.append("❌ 1. High P/E Ratio (> 30 / Negative)")
+    if pe and 0 < pe <= 30: score += 1; breakdown.append("✅ 1. P/E Ratio <= 30 (Good Valuation)")
+    else: breakdown.append("❌ 1. High P/E Ratio (> 30 / Negative)")
         
-    if pb and 0 < pb <= 3.5:
-        score += 1; breakdown.append("✅ 2. Price to Book <= 3.5 (Fair Asset Valuation)")
-    else:
-        breakdown.append("❌ 2. High Price to Book Ratio (> 3.5)")
+    if pb and 0 < pb <= 3.5: score += 1; breakdown.append("✅ 2. Price to Book <= 3.5 (Fair Asset Valuation)")
+    else: breakdown.append("❌ 2. High Price to Book Ratio (> 3.5)")
         
-    if de is not None and de <= 0.5:
-        score += 1; breakdown.append("✅ 3. Debt-to-Equity <= 0.5 (Low / Safe Debt)")
-    else:
-        breakdown.append("❌ 3. High Debt-to-Equity (> 0.5)")
+    if de is not None and de <= 0.5: score += 1; breakdown.append("✅ 3. Debt-to-Equity <= 0.5 (Low / Safe Debt)")
+    else: breakdown.append("❌ 3. High Debt-to-Equity (> 0.5)")
         
-    if cr and cr >= 1.3:
-        score += 1; breakdown.append("✅ 4. Current Ratio >= 1.3 (Healthy Liquidity)")
-    else:
-        breakdown.append("❌ 4. Low Liquidity (Current Ratio < 1.3)")
+    if cr and cr >= 1.3: score += 1; breakdown.append("✅ 4. Current Ratio >= 1.3 (Healthy Liquidity)")
+    else: breakdown.append("❌ 4. Low Liquidity (Current Ratio < 1.3)")
         
-    if roe and roe >= 15.0:
-        score += 1; breakdown.append("✅ 5. Return on Equity >= 15% (Strong Efficiency)")
-    else:
-        breakdown.append("❌ 5. Low ROE (< 15%)")
+    if roe and roe >= 15.0: score += 1; breakdown.append("✅ 5. Return on Equity >= 15% (Strong Efficiency)")
+    else: breakdown.append("❌ 5. Low ROE (< 15%)")
         
-    if roa and roa >= 6.0:
-        score += 1; breakdown.append("✅ 6. Return on Assets >= 6% (Efficient Assets)")
-    else:
-        breakdown.append("❌ 6. Low ROA (< 6%)")
+    if roa and roa >= 6.0: score += 1; breakdown.append("✅ 6. Return on Assets >= 6% (Efficient Assets)")
+    else: breakdown.append("❌ 6. Low ROA (< 6%)")
         
-    if pm and pm >= 10.0:
-        score += 1; breakdown.append("✅ 7. Net Profit Margin >= 10% (High Profitability)")
-    else:
-        breakdown.append("❌ 7. Low Net Profit Margin (< 10%)")
+    if pm and pm >= 10.0: score += 1; breakdown.append("✅ 7. Net Profit Margin >= 10% (High Profitability)")
+    else: breakdown.append("❌ 7. Low Net Profit Margin (< 10%)")
         
-    if rev_g is not None and rev_g >= 8.0:
-        score += 1; breakdown.append("✅ 8. Revenue Growth YoY >= 8% (Growing Business)")
-    else:
-        breakdown.append("❌ 8. Flat / Low Revenue Growth (< 8%)")
+    if rev_g is not None and rev_g >= 8.0: score += 1; breakdown.append("✅ 8. Revenue Growth YoY >= 8% (Growing Business)")
+    else: breakdown.append("❌ 8. Flat / Low Revenue Growth (< 8%)")
         
-    if net_g is not None and net_g >= 8.0:
-        score += 1; breakdown.append("✅ 9. Net Profit Growth YoY >= 8% (Expanding Profit)")
-    else:
-        breakdown.append("❌ 9. Low Earnings Growth (< 8%)")
+    if net_g is not None and net_g >= 8.0: score += 1; breakdown.append("✅ 9. Net Profit Growth YoY >= 8% (Expanding Profit)")
+    else: breakdown.append("❌ 9. Low Earnings Growth (< 8%)")
         
-    if fcf and fcf > 0:
-        score += 1; breakdown.append("✅ 10. Positive Free Cash Flow (Actual Cash Generation)")
-    else:
-        breakdown.append("❌ 10. Negative Free Cash Flow / Cash Burn")
+    if fcf and fcf > 0: score += 1; breakdown.append("✅ 10. Positive Free Cash Flow (Actual Cash Generation)")
+    else: breakdown.append("❌ 10. Negative Free Cash Flow / Cash Burn")
         
     return max(1, min(10, score)), breakdown
 
@@ -393,12 +361,13 @@ df_res, df_div, df_split, df_bonus, df_agm = fetch_categorized_events()
 # ==================== ૬. Main Tabs ====================
 tab_scanner, tab_tech, tab_shariah, tab_fund, tab_events = st.tabs([
     "📊 માર્કેટ સ્કેનર", 
-    "📐 ટેક્નિકલ એનાલિસિસ", 
+    "📐 ટેક્નિકલ એનાલિસિસ & લાઈવ ચાર્ટ", 
     "🕌 શરિયા ડિરેક્ટરી (Core Activity & 5 Rules)", 
     "📈 ડીપ ફંડામેન્ટલ, TTM, બેલેન્સ શીટ અને ગ્રોથ",
     "📅 કોર્પોરેટ ઈવેન્ટ્સ અને એક્શન્સ"
 ])
 
+# ----------------- ૧. MARKET SCANNER -----------------
 with tab_scanner:
     st.subheader("📊 માર્કેટ સ્કેનર")
     search_disp = st.selectbox("🔍 સ્ટોક અથવા કંપનીનું નામ શોધો:", options=stock_options_list, index=0, key="scan_s")
@@ -408,19 +377,85 @@ with tab_scanner:
         preview_df = preview_df[preview_df['Stock'] == search_term]
     st.dataframe(preview_df, use_container_width=True)
 
+# ----------------- ૨. TECHNICAL ANALYSIS (TradingView Advanced Embed) -----------------
 with tab_tech:
-    st.subheader("📐 ટેક્નિકલ એનાલિસિસ")
-    t_disp = st.selectbox("વિશ્લેષણ માટે શેર પસંદ કરો:", options=stock_options_list, index=0, key="tech_s")
-    t_stock = get_symbol_from_display(t_disp)
-    if t_stock:
-        st.success(f"**{t_stock}** ટેકનિકલ સ્ટ્રક્ચર સક્રિય છે.")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("1H Structure", "BULLISH 🟢")
-        c2.metric("4H Structure", "BULLISH 🟢")
-        c3.metric("Daily Structure", "BULLISH 🟢")
-        c4.metric("Weekly Structure", "SIDEWAYS 🟡")
+    st.subheader("📐 પ્રોફેશનલ લાઈવ ચાર્ટ & ટેક્નિકલ એનાલિસિસ")
+    
+    col_t1, col_t2 = st.columns([3, 2])
+    with col_t1:
+        t_disp = st.selectbox("ચાર્ટ માટે શેર પસંદ કરો:", options=stock_options_list, index=1, key="tech_s")
+        t_stock = get_symbol_from_display(t_disp) or "RELIANCE"
+    with col_t2:
+        quick_asset = st.selectbox("અથવા ગ્લોબલ / ફોરેક્સ પેર પસંદ કરો:", [
+            "શેર ચાર્ટ (ઉપરથી પસંદ કરેલ)",
+            "USD/INR (Forex)",
+            "EUR/USD (Forex)",
+            "GBP/INR (Forex)",
+            "NIFTY 50 Index",
+            "BANK NIFTY Index",
+            "GOLD (Comex / MCX)",
+            "CRUDE OIL (WTI)"
+        ], index=0)
 
-# ==================== શરિયા ડિરેક્ટરી ====================
+    # TradingView Symbol Mapping Logic
+    if quick_asset == "USD/INR (Forex)":
+        tv_symbol = "FX_IDC:USDINR"
+    elif quick_asset == "EUR/USD (Forex)":
+        tv_symbol = "FX:EURUSD"
+    elif quick_asset == "GBP/INR (Forex)":
+        tv_symbol = "FX_IDC:GBPINR"
+    elif quick_asset == "NIFTY 50 Index":
+        tv_symbol = "NSE:NIFTY"
+    elif quick_asset == "BANK NIFTY Index":
+        tv_symbol = "NSE:BANKNIFTY"
+    elif quick_asset == "GOLD (Comex / MCX)":
+        tv_symbol = "COMEX:GC1!"
+    elif quick_asset == "CRUDE OIL (WTI)":
+        tv_symbol = "NYMEX:CL1!"
+    else:
+        tv_symbol = f"NSE:{t_stock}"
+
+    # Multi-timeframe structure indicators
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("1H Structure", "BULLISH 🟢")
+    c2.metric("4H Structure", "BULLISH 🟢")
+    c3.metric("Daily Structure", "BULLISH 🟢")
+    c4.metric("Weekly Structure", "SIDEWAYS 🟡")
+
+    # TradingView Advanced Interactive Chart (Drawing Tools + SMC + Indicators)
+    tv_widget = f"""
+    <div class="tradingview-widget-container" style="height:650px;width:100%;">
+      <div id="tradingview_terminal_chart" style="height:calc(100% - 32px);width:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget(
+      {{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "D",
+        "timezone": "Asia/Kolkata",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#12141a",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "withdateranges": true,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "save_image": true,
+        "details": true,
+        "hotlist": true,
+        "calendar": true,
+        "container_id": "tradingview_terminal_chart"
+      }}
+      );
+      </script>
+    </div>
+    """
+    components.html(tv_widget, height=660)
+
+# ----------------- ૩. SHARIAH DIRECTORY -----------------
 with tab_shariah:
     st.subheader(f"🕌 Shariah Compliance Screener (Total Halal: {total_halal_count}+)")
     
@@ -443,16 +478,14 @@ with tab_shariah:
             verdict_color = "#00c853" if "Compliant" in st_verdict and "Non" not in st_verdict else "#ff3d00"
             st.markdown(f"### 🏢 **{clean_sh}** Final Status: <span style='color:{verdict_color}; font-weight:bold;'>{st_verdict}</span>", unsafe_allow_html=True)
             
-            # CORE ACTIVITIES BANNER (મુખ્ય બિઝનેસ હલાલ છે કે નહીં તે ચકાસણી)[cite: 27]
             st.markdown('<div class="sharia-card">', unsafe_allow_html=True)
             if core_permissible:
-                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 WE FOUND CORE ACTIVITIES OF COMPANY IS SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True) #[cite: 27]
+                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 WE FOUND CORE ACTIVITIES OF COMPANY IS SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True) #
             else:
                 st.markdown("<h4 style='color: #ff3d00; margin-bottom: 12px;'>❌ WE FOUND CORE ACTIVITIES OF COMPANY IS NOT SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True)
             st.write(f"**બિઝનેસ વર્ણન:** {bus_summary}")
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # ૫ શરિયા નાણાકીય શરતો[cite: 22, 23, 24, 25, 26]
             st.markdown("#### 📋 5 Shariah Financial Formulas & Verification (નાણાકીય શરતો):")
             for rule in st_rules:
                 st.write(rule)
@@ -466,7 +499,7 @@ with tab_shariah:
         d_sh = d_sh[d_sh["Shariah Status"].str.contains("Non-Compliant")]
     st.dataframe(d_sh, use_container_width=True)
 
-# ==================== DEEP FUNDAMENTAL TAB ====================
+# ----------------- ૪. DEEP FUNDAMENTAL TAB -----------------
 with tab_fund:
     st.subheader("📈 ડીપ ફંડામેન્ટલ, TTM, બેલેન્સ શીટ અને ગ્રોથ")
     def_idx = 0
@@ -543,7 +576,6 @@ with tab_fund:
                     st.write(item)
 
             st.markdown("---")
-            # 1. TTM & Growth Rates
             st.markdown("#### 1️⃣ TTM પર્ફોર્મન્સ અને ગ્રોથ રેટ્સ (વધે = 🟢 | ઘટે = 🔴)")
             g1, g2, g3, g4 = st.columns(4)
             g1.metric("TTM Revenue", f"₹{round(rev/10000000, 2):,} Cr", f"{'+' if rev_g >= 0 else ''}{rev_g}% YoY", delta_color="normal")
@@ -551,7 +583,6 @@ with tab_fund:
             g3.metric("Revenue Growth (YoY)", f"{rev_g}%", f"{'+' if rev_g >= 0 else ''}{rev_g}%", delta_color="normal")
             g4.metric("Earnings Growth (YoY)", f"{net_g}%", f"{'+' if net_g >= 0 else ''}{net_g}%", delta_color="normal")
 
-            # 2. Valuation Ratios
             st.markdown("#### 2️⃣ વેલ્યુએશન રેશિયોઝ (Valuation Ratios)")
             v1, v2, v3, v4 = st.columns(4)
             v1.metric("P/E Ratio (TTM)", f"{pe}")
@@ -559,7 +590,6 @@ with tab_fund:
             v3.metric("Forward P/E", f"{round(inf.get('forwardPE', pe*0.9), 2)}")
             v4.metric("Dividend Yield", f"{round((inf.get('dividendYield') or 0.055)*100, 2)}%")
 
-            # 3. Balance Sheet & Cashflow
             st.markdown("#### 3️⃣ બેલેન્સ શીટ અને કેશ ફ્લો સ્થિતિ")
             b1, b2, b3, b4 = st.columns(4)
             b1.metric("Total Cash", f"₹{cash_cr:,} Cr")
@@ -567,7 +597,6 @@ with tab_fund:
             b3.metric("Free Cash Flow", f"₹{fcf_cr:,} Cr", "Positive 🟢" if fcf_cr > 0 else "Negative 🔴")
             b4.metric("Current Ratio", f"{cr}")
 
-            # 4. Profitability Margins
             st.markdown("#### 4️⃣ પ્રોફિટેબિલિટી માર્જિન્સ અને રિટર્ન્સ")
             p1, p2, p3, p4 = st.columns(4)
             p1.metric("Return on Equity (ROE)", f"{roe}%")
@@ -575,7 +604,6 @@ with tab_fund:
             p3.metric("Net Profit Margin", f"{pm}%")
             p4.metric("Operating Margin", f"{round(inf.get('operatingMargins', 0.22)*100, 2)}%")
 
-            # 5. Shareholding Pattern
             st.markdown("#### 5️⃣ શેરહોલ્ડિંગ પેટર્ન (FII / DII / પ્રમોટર્સ)")
             s1, s2, s3, s4 = st.columns(4)
             s1.metric("🏢 Promoters Holding", "72.90%", "+0.0% Stable")
@@ -583,7 +611,6 @@ with tab_fund:
             s3.metric("🏦 DII / Mutual Funds", "11.20%", "+0.5% Inflow 🟢")
             s4.metric("👥 Public & Retail", "9.10%", "-0.9% Outflow")
 
-            # 6. Raw Audited Financial Statements
             st.markdown("#### 6️⃣ ઓડિટેડ બેલેન્સ શીટ અને P&L ટેબલ્સ")
             with st.expander("🔍 બેલેન્સ શીટ સ્ટેટમેન્ટ્સ જોવા માટે અહીં ક્લિક કરો", expanded=False):
                 if not bs_df.empty:
@@ -591,13 +618,12 @@ with tab_fund:
                 else:
                     st.info("ડેટા હાલમાં ઉપલબ્ધ નથી.")
 
-            # 7. Detailed Corporate Business Summary
             st.markdown("---")
             st.markdown("#### 7️⃣ વિગતવાર કોર્પોરેટ બિઝનેસ સમરી")
             raw_summary = inf.get('longBusinessSummary', f"{clean_name} એ ભારતની અગ્રણી કંપનીઓમાંની એક છે.")
             st.info(raw_summary)
 
-# ==================== CORPORATE EVENTS (LAST TAB) ====================
+# ----------------- ૫. CORPORATE EVENTS -----------------
 with tab_events:
     st.subheader("📅 કોર્પોરેટ ઈવેન્ટ્સ અને એક્શન્સ")
     ev_disp = st.selectbox("શેર પસંદ કરો:", options=stock_options_list, index=0, key="event_s")
