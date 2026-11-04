@@ -3,14 +3,13 @@ import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import urllib.request
 import io
 import requests
 import datetime
+import json
 
-# 1. Page Setup & Terminal Look UI
+# ==================== 1. PAGE SETUP & TERMINAL THEME ====================
 st.set_page_config(page_title="SMC Terminal", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
@@ -23,7 +22,7 @@ st.markdown("""
     div[data-testid="stMetric"] {
         background-color: #161b22;
         border: 1px solid #30363d;
-        padding: 15px 20px;
+        padding: 12px 18px;
         border-radius: 8px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
     }
@@ -34,27 +33,7 @@ st.markdown("""
     }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #ffffff !important;
-        font-size: 24px !important;
-        font-weight: 700 !important;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-        background-color: #161b22;
-        padding: 8px;
-        border-radius: 8px;
-        border: 1px solid #30363d;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent;
-        color: #8b949e;
-        border-radius: 6px;
-        padding: 8px 16px;
-        font-weight: 600;
-        border: none;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #f0883e !important;
-        color: #0b0e14 !important;
+        font-size: 22px !important;
         font-weight: 700 !important;
     }
     div[data-testid="stDataFrame"] {
@@ -69,6 +48,30 @@ st.markdown("""
         padding: 18px 22px;
         margin-bottom: 20px;
     }
+    /* Horizontal Navigation Radio Styling */
+    div[role="radiogroup"] {
+        display: flex;
+        gap: 8px;
+        background-color: #161b22;
+        padding: 6px;
+        border-radius: 8px;
+        border: 1px solid #30363d;
+        overflow-x: auto;
+    }
+    div[role="radiogroup"] label {
+        background: transparent !important;
+        border: none !important;
+        padding: 6px 14px !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        color: #8b949e !important;
+        cursor: pointer !important;
+    }
+    div[role="radiogroup"] label[data-checked="true"] {
+        background-color: #f0883e !important;
+        color: #0b0e14 !important;
+        font-weight: 700 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -82,7 +85,7 @@ def get_custom_session():
 
 session = get_custom_session()
 
-# ==================== 1. Fixed Scrolling Marquee (Indices) ====================
+# ==================== 2. FIXED SCROLLING MARQUEE (INDICES) ====================
 @st.cache_data(ttl=60)
 def get_live_ticker_indices():
     indices = {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN", "BANK NIFTY": "^NSEBANK", "INDIA VIX": "^INDIAVIX"}
@@ -115,7 +118,7 @@ st.markdown(f"""
 
 st.title("⚡ SMC Terminal")
 
-# ==================== 2. COMMODITIES ====================
+# ==================== 3. COMMODITIES (18K, 22K, 24K, SILVER, CRUDE) ====================
 @st.cache_data(ttl=60)
 def get_live_commodities():
     try:
@@ -178,7 +181,7 @@ with c5:
 
 st.markdown("---")
 
-# ==================== 3. ISLAMIC RULES & 5 SHARIAH FINANCIAL SCREENS ====================
+# ==================== 4. 5 SHARIAH FINANCIAL SCREENS & CRITERIA ====================
 def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
     s = stock_name.upper()
     core_permissible = True
@@ -186,19 +189,19 @@ def evaluate_5_shariah_criteria(stock_name, inf=None, bs_df=None):
     
     if any(k in s for k in ["BANK", "FINANCE", "FINSERV", "CAPITAL", "HOLDINGS", "INSUR", "MUTUAL", "INVEST"]):
         core_permissible = False
-        core_activity_reason = "Mukhya vyavasay vyajkhori (riba), paramparagat banking ane shariah viruddh sevao sathe jodayelo chhe."
+        core_activity_reason = "Core business is associated with conventional interest-bearing banking, financing and non-shariah financial services."
     elif s in ["ITC", "GODFREYPHLP", "VSTIND"]:
         core_permissible = False
-        core_activity_reason = "Mukhya vyavasay tambaku, cigarette ane nashila utpadano sathe jodayelo chhe."
+        core_activity_reason = "Core business is manufacturing and distribution of tobacco and cigarettes."
     elif s in ["UBL", "UNITDSPR", "RADICO", "TI"]:
         core_permissible = False
-        core_activity_reason = "Mukhya vyavasay daaru, breweries ane alcoholic beverages sathe jodayelo chhe."
+        core_activity_reason = "Core business is alcohol and brewery manufacturing."
     else:
         core_permissible = True
-        core_activity_reason = "Company no mukhya vyavasay Islamic Shariah mujab manya (Halal) chhe."
+        core_activity_reason = "Company core activities are Shariah permissible (Halal goods & services)."
 
     if s == "WIPRO":
-        core_activity_text = "Wipro Limited operates as an information technology (IT), consulting, and business process services company worldwide. It operates through IT Services and IT Products segments."
+        core_activity_text = "Wipro Limited operates as an information technology (IT), consulting, and business process services company worldwide."
         return "❌ Non-Compliant", True, core_activity_text, [
             "❌ 1. Impermissible Income to Total Revenue > 5% (Interest Income fails the threshold)",
             "✅ 2. Interest-bearing Debt to Total Assets < 33% (Pass)",
@@ -303,7 +306,7 @@ def generate_shariah_master(df_master):
 df_shariah_full = generate_shariah_master(df_master_stocks)
 total_halal_count = len(df_shariah_full[df_shariah_full["Shariah Status"].str.contains("Compliant") & ~df_shariah_full["Shariah Status"].str.contains("Non-Compliant")])
 
-# ==================== 4. 10-Points Rating Engine ====================
+# ==================== 5. 10-POINTS RATING ENGINE ====================
 def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf):
     score = 0
     breakdown = []
@@ -340,7 +343,7 @@ def calculate_fundamental_score(pe, pb, de, cr, roe, roa, pm, rev_g, net_g, fcf)
         
     return max(1, min(10, score)), breakdown
 
-# ==================== 5. Corporate Events ====================
+# ==================== 6. CORPORATE EVENTS ====================
 @st.cache_data(ttl=3600)
 def fetch_categorized_events():
     today = datetime.date.today()
@@ -361,28 +364,50 @@ def fetch_categorized_events():
 
 df_res, df_div, df_split, df_bonus, df_agm = fetch_categorized_events()
 
-# ==================== 6. Main Tabs ====================
-tab_scanner, tab_tech, tab_shariah, tab_fund, tab_events = st.tabs([
+# ==================== 7. STATE-PRESERVED NAVIGATION ====================
+query_params = st.query_params
+
+default_tab = query_params.get("tab", "📊 Market Scanner")
+tabs_list = [
     "📊 Market Scanner", 
-    "📐 Technical Analysis & Charts (Dhan + SMC)", 
-    "🕌 Shariah Directory (Core Activity & 5 Rules)", 
-    "📈 Deep Fundamentals, TTM & Balance Sheet",
-    "📅 Corporate Events & Actions"
-])
+    "📐 Technical SMC Charting", 
+    "🕌 Shariah Directory (5 Rules)", 
+    "📈 Deep Fundamentals & TTM",
+    "📅 Corporate Events"
+]
+
+default_index = tabs_list.index(default_tab) if default_tab in tabs_list else 0
+
+active_tab = st.radio(
+    "Navigation", 
+    options=tabs_list, 
+    index=default_index, 
+    horizontal=True, 
+    label_visibility="collapsed"
+)
+
+# URL Query parameter update (refresh par pan state save rahese)
+if st.query_params.get("tab") != active_tab:
+    st.query_params["tab"] = active_tab
+
+st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+
+# ==================== TAB ROUTING ====================
 
 # ----------------- 1. MARKET SCANNER -----------------
-with tab_scanner:
-    st.subheader("📊 Market Scanner")
+if active_tab == "📊 Market Scanner":
+    st.subheader("📊 NSE / BSE Market Scanner")
     search_disp = st.selectbox("🔍 Search Stock or Company Name:", options=stock_options_list, index=0, key="scan_s")
     search_term = get_symbol_from_display(search_disp)
-    preview_df = df_master_stocks.head(30).copy()
+    preview_df = df_master_stocks.head(40).copy()
     if search_term: 
         preview_df = preview_df[preview_df['Stock'] == search_term]
     st.dataframe(preview_df, use_container_width=True)
 
-# ----------------- 2. TECHNICAL ANALYSIS (DHAN TRADINGVIEW + SMC DRAWING TOOLS) -----------------
-with tab_tech:
-    st.subheader("📐 Technical Analysis & Charting Terminal")
+# ----------------- 2. TECHNICAL SMC CHARTING (KLINE ENGINE) -----------------
+elif active_tab == "📐 Technical SMC Charting":
+    st.subheader("📐 Professional SMC Technical Terminal")
     
     col_t1, col_t2 = st.columns([3, 2])
     with col_t1:
@@ -390,25 +415,19 @@ with tab_tech:
         t_stock = get_symbol_from_display(t_disp) or "RELIANCE"
         clean_sym = t_stock.replace(".NS", "").replace(".BO", "")
     with col_t2:
-        chart_view_mode = st.radio(
-            "Select Chart Mode:",
-            ["🚀 Dhan TradingView Terminal (Official)", "📊 In-App SMC Chart with Drawing Tools"],
-            horizontal=True
-        )
+        tf_choice = st.selectbox("Timeframe:", ["1mo", "3mo", "6mo", "1y", "2y"], index=2)
 
-    # Dhan TV URLs
+    # 1-Click Launch Buttons
     dhan_tv_url = f"https://tv.dhan.co/?symbol=NSE:{clean_sym}"
     tradingview_url = f"https://in.tradingview.com/chart/?symbol=NSE:{clean_sym}"
-
-    # Action Toolbar
-    st.markdown("---")
+    
     btn_c1, btn_c2, btn_c3 = st.columns([2.5, 2.5, 3])
     with btn_c1:
         st.link_button(f"⚡ Open {clean_sym} in Dhan TV", dhan_tv_url, use_container_width=True)
     with btn_c2:
         st.link_button(f"📈 Open {clean_sym} in TradingView", tradingview_url, use_container_width=True)
     with btn_c3:
-        st.caption("Dhan TradingView terminal par NSE stocks na live data, native indicators ane drawing tools open thase.")
+        st.caption("Direct new tab ma Dhan ke TradingView full-screen access karo.")
 
     # Multi-timeframe structure indicators
     c1, c2, c3, c4 = st.columns(4)
@@ -417,107 +436,133 @@ with tab_tech:
     c3.metric("Daily Structure", "BULLISH 🟢")
     c4.metric("Weekly Structure", "SIDEWAYS 🟡")
 
-    if chart_view_mode == "🚀 Dhan TradingView Terminal (Official)":
-        st.markdown(f"#### 🖥️ Dhan TradingView Embed: **NSE:{clean_sym}**")
-        # In-App Dhan TradingView Frame
-        components.iframe(dhan_tv_url, height=680, scrolling=True)
-        st.info("💡 Note: Jo browser ma Dhan frame load na thay to upar aavel 'Open in Dhan TV' button par click kari ne full-screen ma access karo.")
+    st.markdown("---")
 
+    with st.spinner(f"⏳ {clean_sym} candle data load thai rahyo chhe..."):
+        try:
+            t_obj = yf.Ticker(f"{clean_sym}.NS", session=session)
+            df_chart = t_obj.history(period=tf_choice, interval="1d")
+        except Exception:
+            df_chart = pd.DataFrame()
+
+    if not df_chart.empty:
+        chart_data = []
+        for idx, row in df_chart.iterrows():
+            chart_data.append({
+                "timestamp": int(idx.timestamp() * 1000),
+                "open": round(float(row['Open']), 2),
+                "high": round(float(row['High']), 2),
+                "low": round(float(row['Low']), 2),
+                "close": round(float(row['Close']), 2),
+                "volume": int(row.get('Volume', 0))
+            })
+        kline_json = json.dumps(chart_data)
+
+        html_code = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8" />
+            <script src="https://cdn.jsdelivr.net/npm/klinecharts@9.8.6/dist/klinecharts.min.js"></script>
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    background-color: #0b0e14;
+                    color: #e6edf3;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    overflow: hidden;
+                }}
+                #toolbar {{
+                    display: flex;
+                    gap: 8px;
+                    padding: 8px 12px;
+                    background: #161b22;
+                    border: 1px solid #30363d;
+                    border-radius: 8px 8px 0 0;
+                    align-items: center;
+                    flex-wrap: wrap;
+                }}
+                .tool-title {{
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: #8b949e;
+                    margin-right: 6px;
+                }}
+                .btn {{
+                    background: #21262d;
+                    color: #c9d1d9;
+                    border: 1px solid #30363d;
+                    padding: 5px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    font-weight: 600;
+                }}
+                .btn:hover {{
+                    background: #30363d;
+                    color: #58a6ff;
+                    border-color: #8b949e;
+                }}
+                .btn-danger {{ color: #ff7b72; }}
+                #chart-box {{
+                    width: 100%;
+                    height: 560px;
+                    border: 1px solid #30363d;
+                    border-top: none;
+                    border-radius: 0 0 8px 8px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div id="toolbar">
+                <span class="tool-title">⚡ SMC DRAW TOOLS:</span>
+                <button class="btn" onclick="draw('rect')">🟩 Order Block (Box)</button>
+                <button class="btn" onclick="draw('segment')">📐 Trendline / BOS</button>
+                <button class="btn" onclick="draw('horizontalStraightLine')">➖ Support / Resistance</button>
+                <button class="btn" onclick="draw('fibonacci')">📏 Fibonacci</button>
+                <button class="btn btn-danger" onclick="clearAll()">🧹 Clear Drawings</button>
+            </div>
+            <div id="chart-box"></div>
+
+            <script>
+                const chart = klinecharts.init('chart-box', {{
+                    styles: {{
+                        grid: {{ horizontal: {{ color: '#161b22' }}, vertical: {{ color: '#161b22' }} }},
+                        candle: {{
+                            bar: {{
+                                upColor: '#00c853', downColor: '#ff3d00',
+                                upBorderColor: '#00c853', downBorderColor: '#ff3d00',
+                                upWickColor: '#00c853', downWickColor: '#ff3d00'
+                            }}
+                        }}
+                    }}
+                }});
+                chart.createIndicator('EMA', false, {{ id: 'candle_pane' }});
+                chart.createIndicator('VOL');
+                const rawData = {kline_json};
+                chart.applyNewData(rawData);
+
+                function draw(name) {{ chart.createOverlay(name); }}
+                function clearAll() {{ chart.removeOverlay(); }}
+            </script>
+        </body>
+        </html>
+        """
+        components.html(html_code, height=640)
     else:
-        # In-App Interactive Plotly Chart with SMC Drawing Tools
-        st.markdown(f"#### 📐 Interactive Candlestick Chart (SMC Tools Enabled): **{clean_sym}**")
-        
-        tf_col1, tf_col2 = st.columns([2, 4])
-        with tf_col1:
-            sel_period = st.selectbox("Timeframe:", ["1mo", "3mo", "6mo", "1y", "2y"], index=2)
-        with tf_col2:
-            st.caption("Chart upar Rectangle Box thi Order Block ane Line thi BOS / CHoCH mark kari shakase.")
-
-        with st.spinner(f"⏳ {clean_sym} candle data load thai rahyo chhe..."):
-            try:
-                t_obj = yf.Ticker(f"{clean_sym}.NS", session=session)
-                df_chart = t_obj.history(period=sel_period, interval="1d")
-            except Exception:
-                df_chart = pd.DataFrame()
-
-        if not df_chart.empty:
-            df_chart['EMA20'] = df_chart['Close'].ewm(span=20, adjust=False).mean()
-            df_chart['EMA50'] = df_chart['Close'].ewm(span=50, adjust=False).mean()
-
-            fig = make_subplots(
-                rows=2, cols=1, 
-                shared_xaxes=True, 
-                vertical_spacing=0.03, 
-                row_heights=[0.75, 0.25]
-            )
-
-            # Candlestick
-            fig.add_trace(go.Candlestick(
-                x=df_chart.index,
-                open=df_chart['Open'],
-                high=df_chart['High'],
-                low=df_chart['Low'],
-                close=df_chart['Close'],
-                name="Price",
-                increasing_line_color='#00c853',
-                decreasing_line_color='#ff3d00'
-            ), row=1, col=1)
-
-            # EMAs
-            fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA20'], mode='lines', line=dict(color='#29b6f6', width=1.5), name="EMA 20"), row=1, col=1)
-            fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA50'], mode='lines', line=dict(color='#ffb74d', width=1.5), name="EMA 50"), row=1, col=1)
-
-            # Volume
-            v_colors = ['#00c853' if c >= o else '#ff3d00' for c, o in zip(df_chart['Close'], df_chart['Open'])]
-            fig.add_trace(go.Bar(
-                x=df_chart.index,
-                y=df_chart['Volume'],
-                name="Volume",
-                marker_color=v_colors,
-                opacity=0.6
-            ), row=2, col=1)
-
-            fig.update_layout(
-                title=f"📈 {clean_sym} (NSE) — Candlestick & Volume Chart",
-                template="plotly_dark",
-                xaxis_rangeslider_visible=False,
-                height=600,
-                paper_bgcolor="#161b22",
-                plot_bgcolor="#0b0e14",
-                margin=dict(l=10, r=10, t=40, b=10),
-                xaxis=dict(showgrid=True, gridcolor="#21262d"),
-                yaxis=dict(showgrid=True, gridcolor="#21262d", side="right"),
-                yaxis2=dict(showgrid=False, side="right", title="Volume"),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
-
-            # Plotly Drawing Tools Enabled
-            st.plotly_chart(
-                fig, 
-                use_container_width=True,
-                config={
-                    'scrollZoom': True,
-                    'modeBarButtonsToAdd': [
-                        'drawline',       # Trendline / BOS mark karva mate
-                        'drawrect',       # SMC Order Block / Demand-Supply Box mate
-                        'drawopenpath',   # Freehand drawing
-                        'eraseshape'      # Erase karva mate
-                    ]
-                }
-            )
-        else:
-            st.warning("Chart data available nathi.")
+        st.warning(f"⚠️ {clean_sym} candle data fetch thai shakyo nathi.")
 
 # ----------------- 3. SHARIAH DIRECTORY -----------------
-with tab_shariah:
+elif active_tab == "🕌 Shariah Directory (5 Rules)":
     st.subheader(f"🕌 Shariah Compliance Screener (Total Halal: {total_halal_count}+)")
     
-    sh_disp = st.selectbox("Stock Shariah Status Live Check:", options=stock_options_list, index=0, key="sh_live_s")
+    sh_disp = st.selectbox("Live Stock Shariah Screening:", options=stock_options_list, index=0, key="sh_live_s")
     sh_stock = get_symbol_from_display(sh_disp)
     
     if sh_stock:
         clean_sh = sh_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_sh} Shariah status check thai rahyu chhe..."):
+        with st.spinner(f"⏳ {clean_sh} Shariah compliance evaluate thai rahyu chhe..."):
             try:
                 t_sh = yf.Ticker(f"{clean_sh}.NS", session=session)
                 inf_sh = t_sh.info or {}
@@ -529,14 +574,14 @@ with tab_shariah:
             st_verdict, core_permissible, bus_summary, st_rules = evaluate_5_shariah_criteria(clean_sh, inf_sh, bs_sh)
             
             verdict_color = "#00c853" if "Compliant" in st_verdict and "Non" not in st_verdict else "#ff3d00"
-            st.markdown(f"### 🏢 **{clean_sh}** Final Status: <span style='color:{verdict_color}; font-weight:bold;'>{st_verdict}</span>", unsafe_allow_html=True)
+            st.markdown(f"### 🏢 **{clean_sh}** Final Verdict: <span style='color:{verdict_color}; font-weight:bold;'>{st_verdict}</span>", unsafe_allow_html=True)
             
             st.markdown('<div class="sharia-card">', unsafe_allow_html=True)
             if core_permissible:
-                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 WE FOUND CORE ACTIVITIES OF COMPANY IS SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True)
+                st.markdown("<h4 style='color: #00c853; margin-bottom: 12px;'>🏢 CORE ACTIVITIES ARE SHARIAH PERMISSIBLE (HALAL)</h4>", unsafe_allow_html=True)
             else:
-                st.markdown("<h4 style='color: #ff3d00; margin-bottom: 12px;'>❌ WE FOUND CORE ACTIVITIES OF COMPANY IS NOT SHARIA PERMISSIBLE.</h4>", unsafe_allow_html=True)
-            st.write(f"**Business Summary:** {bus_summary}")
+                st.markdown("<h4 style='color: #ff3d00; margin-bottom: 12px;'>❌ CORE ACTIVITIES ARE NOT SHARIAH PERMISSIBLE</h4>", unsafe_allow_html=True)
+            st.write(f"**Business Description:** {bus_summary}")
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown("#### 📋 5 Shariah Financial Formulas & Verification:")
@@ -552,9 +597,9 @@ with tab_shariah:
         d_sh = d_sh[d_sh["Shariah Status"].str.contains("Non-Compliant")]
     st.dataframe(d_sh, use_container_width=True)
 
-# ----------------- 4. DEEP FUNDAMENTAL TAB -----------------
-with tab_fund:
-    st.subheader("📈 Deep Fundamentals, TTM, Balance Sheet & Growth")
+# ----------------- 4. DEEP FUNDAMENTALS & TTM -----------------
+elif active_tab == "📈 Deep Fundamentals & TTM":
+    st.subheader("📈 Deep Fundamentals, TTM & Balance Sheet Analysis")
     def_idx = 0
     for idx, opt in enumerate(stock_options_list):
         if "WIPRO" in opt:
@@ -566,7 +611,7 @@ with tab_fund:
     
     if fund_stock:
         clean_name = fund_stock.replace(".NS", "").replace(".BO", "")
-        with st.spinner(f"⏳ {clean_name} complete fundamental data load thai rahyo chhe..."):
+        with st.spinner(f"⏳ {clean_name} full fundamentals load thai rahya chhe..."):
             try:
                 t_obj = yf.Ticker(f"{clean_name}.NS", session=session)
                 inf = t_obj.info or {}
@@ -582,29 +627,21 @@ with tab_fund:
 
             mcap = inf.get('marketCap') or (curr_price * 100000000)
             mcap_cr = round(mcap / 10000000, 2)
-            
             rev = inf.get('totalRevenue') or (fin_df.loc['Total Revenue'].iloc[0] if not fin_df.empty and 'Total Revenue' in fin_df.index else 0)
             net_inc = inf.get('netIncomeToCommon') or (fin_df.loc['Net Income'].iloc[0] if not fin_df.empty and 'Net Income' in fin_df.index else 0)
-            
             pe = inf.get('trailingPE') or (round(mcap / net_inc, 2) if mcap > 0 and net_inc > 0 else 18.5)
             pb = inf.get('priceToBook') or 2.8
-            
             debt = inf.get('totalDebt') or (bs_df.loc['Total Debt'].iloc[0] if not bs_df.empty and 'Total Debt' in bs_df.index else 0)
             equity = bs_df.loc['Stockholders Equity'].iloc[0] if not bs_df.empty and 'Stockholders Equity' in bs_df.index else (mcap * 0.4)
             de_ratio = round(debt / equity, 2) if equity > 0 else 0.45
-            
             cr = inf.get('currentRatio') or 1.35
-            
             roe = round(inf.get('returnOnEquity', 0.18) * 100, 2) if inf.get('returnOnEquity') else 18.0
             roa = round(inf.get('returnOnAssets', 0.08) * 100, 2) if inf.get('returnOnAssets') else 7.5
             pm = round(inf.get('profitMargins', 0.12) * 100, 2) if inf.get('profitMargins') else 12.0
-            
             rev_g = round(inf.get('revenueGrowth', 0.11) * 100, 2) if inf.get('revenueGrowth') else 11.2
             net_g = round(inf.get('earningsGrowth', 0.14) * 100, 2) if inf.get('earningsGrowth') else 14.5
-            
             fcf = inf.get('freeCashflow') or (cf_df.loc['Free Cash Flow'].iloc[0] if not cf_df.empty and 'Free Cash Flow' in cf_df.index else 2500000000)
             fcf_cr = round(fcf / 10000000, 2)
-            
             cash = inf.get('totalCash') or 158760000000
             cash_cr = round(cash / 10000000, 2)
             debt_cr = round(debt / 10000000, 2)
@@ -612,7 +649,6 @@ with tab_fund:
             st.markdown(f"### 🏢 **{inf.get('longName', clean_name)}** (LTP: ₹{curr_price:,.2f})")
             st.caption(f"Sector: **{inf.get('sector', 'Core Technology')}** | Industry: **{inf.get('industry', 'IT Services')}** | Market Cap: **₹{mcap_cr:,} Cr**")
 
-            # 1 to 10 Fundamental Rating Score Engine
             score, breakdown = calculate_fundamental_score(pe, pb, de_ratio, cr, roe, roa, pm, rev_g, net_g, fcf)
             verdict = "Strong Buy / Excellent 🟢" if score >= 8 else ("Moderate / Neutral 🟡" if score >= 5 else "Weak / High Risk 🔴")
             
@@ -624,7 +660,7 @@ with tab_fund:
                 st.write(f"**Overall Health Status:** <span style='font-size:18px; font-weight:bold; color: #00c853;'>{verdict}</span>", unsafe_allow_html=True)
                 st.progress(score / 10.0)
 
-            with st.expander("ℹ️ 10 Points Checklist Scorecard Details", expanded=False):
+            with st.expander("ℹ️ 10 Points Checklist Details", expanded=False):
                 for item in breakdown:
                     st.write(item)
 
@@ -677,7 +713,7 @@ with tab_fund:
             st.info(raw_summary)
 
 # ----------------- 5. CORPORATE EVENTS -----------------
-with tab_events:
+elif active_tab == "📅 Corporate Events":
     st.subheader("📅 Corporate Events & Actions")
     ev_disp = st.selectbox("Select Stock for Events:", options=stock_options_list, index=0, key="event_s")
     
