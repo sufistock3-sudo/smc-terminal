@@ -1,13 +1,13 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import urllib.request
 import io
 import requests
 import datetime
-import json
 
 # ==================== 1. PAGE SETUP & TERMINAL THEME ====================
 st.set_page_config(page_title="SMC Terminal", layout="wide", initial_sidebar_state="collapsed")
@@ -48,7 +48,7 @@ st.markdown("""
         padding: 18px 22px;
         margin-bottom: 20px;
     }
-    /* Horizontal Navigation Radio Styling */
+    /* Horizontal Navigation Radio Bar */
     div[role="radiogroup"] {
         display: flex;
         gap: 8px;
@@ -280,12 +280,12 @@ def get_all_nse_bse_symbols():
 
     if not symbols_dict:
         symbols_dict = [
-            {"Stock": "RELIANCE", "Company_Name": "Reliance Industries Limited", "Display_Name": "RELIANCE - Reliance Industries Limited", "Symbol": "RELIANCE.NS", "Market": "NSE"},
-            {"Stock": "WIPRO", "Company_Name": "Wipro Limited", "Display_Name": "WIPRO - Wipro Limited", "Symbol": "WIPRO.NS", "Market": "NSE"},
-            {"Stock": "TCS", "Company_Name": "Tata Consultancy Services Limited", "Display_Name": "TCS - Tata Consultancy Services Limited", "Symbol": "TCS.NS", "Market": "NSE"},
-            {"Stock": "INFY", "Company_Name": "Infosys Limited", "Display_Name": "INFY - Infosys Limited", "Symbol": "INFY.NS", "Market": "NSE"},
-            {"Stock": "ITC", "Company_Name": "ITC Limited", "Display_Name": "ITC - ITC Limited", "Symbol": "ITC.NS", "Market": "NSE"},
-            {"Stock": "UDS", "Company_Name": "Updater Services Limited", "Display_Name": "UDS - Updater Services Limited", "Symbol": "UDS.NS", "Market": "NSE"}
+            {"Stock": "RELIANCE", "Company Name": "Reliance Industries Limited", "Display_Name": "RELIANCE - Reliance Industries Limited", "Symbol": "RELIANCE.NS", "Market": "NSE"},
+            {"Stock": "WIPRO", "Company Name": "Wipro Limited", "Display_Name": "WIPRO - Wipro Limited", "Symbol": "WIPRO.NS", "Market": "NSE"},
+            {"Stock": "TCS", "Company Name": "Tata Consultancy Services Limited", "Display_Name": "TCS - Tata Consultancy Services Limited", "Symbol": "TCS.NS", "Market": "NSE"},
+            {"Stock": "INFY", "Company Name": "Infosys Limited", "Display_Name": "INFY - Infosys Limited", "Symbol": "INFY.NS", "Market": "NSE"},
+            {"Stock": "ITC", "Company Name": "ITC Limited", "Display_Name": "ITC - ITC Limited", "Symbol": "ITC.NS", "Market": "NSE"},
+            {"Stock": "UDS", "Company Name": "Updater Services Limited", "Display_Name": "UDS - Updater Services Limited", "Symbol": "UDS.NS", "Market": "NSE"}
         ]
     return pd.DataFrame(symbols_dict).drop_duplicates(subset=['Symbol'])
 
@@ -405,7 +405,7 @@ if active_tab == "📊 Market Scanner":
         preview_df = preview_df[preview_df['Stock'] == search_term]
     st.dataframe(preview_df, use_container_width=True)
 
-# ----------------- 2. TECHNICAL SMC CHARTING (KLINE ENGINE) -----------------
+# ----------------- 2. TECHNICAL SMC CHARTING (PLOTLY WITH DRAW TOOLS) -----------------
 elif active_tab == "📐 Technical SMC Charting":
     st.subheader("📐 Professional SMC Technical Terminal")
     
@@ -417,7 +417,7 @@ elif active_tab == "📐 Technical SMC Charting":
     with col_t2:
         tf_choice = st.selectbox("Timeframe:", ["1mo", "3mo", "6mo", "1y", "2y"], index=2)
 
-    # 1-Click Launch Buttons
+    # 1-Click Launch Buttons for External Terminals
     dhan_tv_url = f"https://tv.dhan.co/?symbol=NSE:{clean_sym}"
     tradingview_url = f"https://in.tradingview.com/chart/?symbol=NSE:{clean_sym}"
     
@@ -427,7 +427,7 @@ elif active_tab == "📐 Technical SMC Charting":
     with btn_c2:
         st.link_button(f"📈 Open {clean_sym} in TradingView", tradingview_url, use_container_width=True)
     with btn_c3:
-        st.caption("Direct new tab ma Dhan ke TradingView full-screen access karo.")
+        st.caption("Direct new tab ma Dhan ke TradingView official full-screen terminal access karo.")
 
     # Multi-timeframe structure indicators
     c1, c2, c3, c4 = st.columns(4)
@@ -438,6 +438,7 @@ elif active_tab == "📐 Technical SMC Charting":
 
     st.markdown("---")
 
+    # Fetch Candlestick Data via yfinance
     with st.spinner(f"⏳ {clean_sym} candle data load thai rahyo chhe..."):
         try:
             t_obj = yf.Ticker(f"{clean_sym}.NS", session=session)
@@ -446,110 +447,73 @@ elif active_tab == "📐 Technical SMC Charting":
             df_chart = pd.DataFrame()
 
     if not df_chart.empty:
-        chart_data = []
-        for idx, row in df_chart.iterrows():
-            chart_data.append({
-                "timestamp": int(idx.timestamp() * 1000),
-                "open": round(float(row['Open']), 2),
-                "high": round(float(row['High']), 2),
-                "low": round(float(row['Low']), 2),
-                "close": round(float(row['Close']), 2),
-                "volume": int(row.get('Volume', 0))
-            })
-        kline_json = json.dumps(chart_data)
+        # EMA Calculations
+        df_chart['EMA20'] = df_chart['Close'].ewm(span=20, adjust=False).mean()
+        df_chart['EMA50'] = df_chart['Close'].ewm(span=50, adjust=False).mean()
 
-        html_code = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8" />
-            <script src="https://cdn.jsdelivr.net/npm/klinecharts@9.8.6/dist/klinecharts.min.js"></script>
-            <style>
-                body {{
-                    margin: 0;
-                    padding: 0;
-                    background-color: #0b0e14;
-                    color: #e6edf3;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    overflow: hidden;
-                }}
-                #toolbar {{
-                    display: flex;
-                    gap: 8px;
-                    padding: 8px 12px;
-                    background: #161b22;
-                    border: 1px solid #30363d;
-                    border-radius: 8px 8px 0 0;
-                    align-items: center;
-                    flex-wrap: wrap;
-                }}
-                .tool-title {{
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: #8b949e;
-                    margin-right: 6px;
-                }}
-                .btn {{
-                    background: #21262d;
-                    color: #c9d1d9;
-                    border: 1px solid #30363d;
-                    padding: 5px 12px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 13px;
-                    font-weight: 600;
-                }}
-                .btn:hover {{
-                    background: #30363d;
-                    color: #58a6ff;
-                    border-color: #8b949e;
-                }}
-                .btn-danger {{ color: #ff7b72; }}
-                #chart-box {{
-                    width: 100%;
-                    height: 560px;
-                    border: 1px solid #30363d;
-                    border-top: none;
-                    border-radius: 0 0 8px 8px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div id="toolbar">
-                <span class="tool-title">⚡ SMC DRAW TOOLS:</span>
-                <button class="btn" onclick="draw('rect')">🟩 Order Block (Box)</button>
-                <button class="btn" onclick="draw('segment')">📐 Trendline / BOS</button>
-                <button class="btn" onclick="draw('horizontalStraightLine')">➖ Support / Resistance</button>
-                <button class="btn" onclick="draw('fibonacci')">📏 Fibonacci</button>
-                <button class="btn btn-danger" onclick="clearAll()">🧹 Clear Drawings</button>
-            </div>
-            <div id="chart-box"></div>
+        fig = make_subplots(
+            rows=2, cols=1, 
+            shared_xaxes=True, 
+            vertical_spacing=0.03, 
+            row_heights=[0.75, 0.25]
+        )
 
-            <script>
-                const chart = klinecharts.init('chart-box', {{
-                    styles: {{
-                        grid: {{ horizontal: {{ color: '#161b22' }}, vertical: {{ color: '#161b22' }} }},
-                        candle: {{
-                            bar: {{
-                                upColor: '#00c853', downColor: '#ff3d00',
-                                upBorderColor: '#00c853', downBorderColor: '#ff3d00',
-                                upWickColor: '#00c853', downWickColor: '#ff3d00'
-                            }}
-                        }}
-                    }}
-                }});
-                chart.createIndicator('EMA', false, {{ id: 'candle_pane' }});
-                chart.createIndicator('VOL');
-                const rawData = {kline_json};
-                chart.applyNewData(rawData);
+        # Candlestick
+        fig.add_trace(go.Candlestick(
+            x=df_chart.index,
+            open=df_chart['Open'],
+            high=df_chart['High'],
+            low=df_chart['Low'],
+            close=df_chart['Close'],
+            name="Price",
+            increasing_line_color='#00c853',
+            decreasing_line_color='#ff3d00'
+        ), row=1, col=1)
 
-                function draw(name) {{ chart.createOverlay(name); }}
-                function clearAll() {{ chart.removeOverlay(); }}
-            </script>
-        </body>
-        </html>
-        """
-        components.html(html_code, height=640)
+        # EMAs
+        fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA20'], mode='lines', line=dict(color='#29b6f6', width=1.5), name="EMA 20"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA50'], mode='lines', line=dict(color='#ffb74d', width=1.5), name="EMA 50"), row=1, col=1)
+
+        # Volume
+        v_colors = ['#00c853' if c >= o else '#ff3d00' for c, o in zip(df_chart['Close'], df_chart['Open'])]
+        fig.add_trace(go.Bar(
+            x=df_chart.index,
+            y=df_chart['Volume'],
+            name="Volume",
+            marker_color=v_colors,
+            opacity=0.6
+        ), row=2, col=1)
+
+        fig.update_layout(
+            title=f"📈 {clean_sym} (NSE) — Candlestick & Volume Chart",
+            template="plotly_dark",
+            xaxis_rangeslider_visible=False,
+            height=630,
+            paper_bgcolor="#161b22",
+            plot_bgcolor="#0b0e14",
+            margin=dict(l=10, r=10, t=40, b=10),
+            xaxis=dict(showgrid=True, gridcolor="#21262d"),
+            yaxis=dict(showgrid=True, gridcolor="#21262d", side="right"),
+            yaxis2=dict(showgrid=False, side="right", title="Volume"),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+
+        st.info("💡 **SMC Drawing Tools:** Chart na top-right modebar mathi **Box Tool** પસંદ કરીને Order Block દોરી શકાય છે અને **Line Tool** વડે Trendline / BOS લાઇન માર્ક કરી શકાય છે.")
+
+        # Plotly Drawing Tools Activated
+        st.plotly_chart(
+            fig, 
+            use_container_width=True,
+            config={
+                'scrollZoom': True,
+                'displayModeBar': True,
+                'modeBarButtonsToAdd': [
+                    'drawline',       # BOS / CHoCH / Trendline
+                    'drawrect',       # SMC Order Block / Demand-Supply Box
+                    'eraseshape'      # Erase tool
+                ]
+            }
+        )
     else:
         st.warning(f"⚠️ {clean_sym} candle data fetch thai shakyo nathi.")
 
