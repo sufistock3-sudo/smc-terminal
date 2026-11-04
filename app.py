@@ -1,13 +1,13 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import urllib.request
 import io
 import requests
 import datetime
+import json
 
 # ==================== 1. PAGE SETUP & TERMINAL THEME ====================
 st.set_page_config(page_title="SMC Terminal", layout="wide", initial_sidebar_state="collapsed")
@@ -280,12 +280,12 @@ def get_all_nse_bse_symbols():
 
     if not symbols_dict:
         symbols_dict = [
-            {"Stock": "RELIANCE", "Company Name": "Reliance Industries Limited", "Display_Name": "RELIANCE - Reliance Industries Limited", "Symbol": "RELIANCE.NS", "Market": "NSE"},
-            {"Stock": "WIPRO", "Company Name": "Wipro Limited", "Display_Name": "WIPRO - Wipro Limited", "Symbol": "WIPRO.NS", "Market": "NSE"},
-            {"Stock": "TCS", "Company Name": "Tata Consultancy Services Limited", "Display_Name": "TCS - Tata Consultancy Services Limited", "Symbol": "TCS.NS", "Market": "NSE"},
-            {"Stock": "INFY", "Company Name": "Infosys Limited", "Display_Name": "INFY - Infosys Limited", "Symbol": "INFY.NS", "Market": "NSE"},
-            {"Stock": "ITC", "Company Name": "ITC Limited", "Display_Name": "ITC - ITC Limited", "Symbol": "ITC.NS", "Market": "NSE"},
-            {"Stock": "UDS", "Company Name": "Updater Services Limited", "Display_Name": "UDS - Updater Services Limited", "Symbol": "UDS.NS", "Market": "NSE"}
+            {"Stock": "RELIANCE", "Company_Name": "Reliance Industries Limited", "Display_Name": "RELIANCE - Reliance Industries Limited", "Symbol": "RELIANCE.NS", "Market": "NSE"},
+            {"Stock": "WIPRO", "Company_Name": "Wipro Limited", "Display_Name": "WIPRO - Wipro Limited", "Symbol": "WIPRO.NS", "Market": "NSE"},
+            {"Stock": "TCS", "Company_Name": "Tata Consultancy Services Limited", "Display_Name": "TCS - Tata Consultancy Services Limited", "Symbol": "TCS.NS", "Market": "NSE"},
+            {"Stock": "INFY", "Company_Name": "Infosys Limited", "Display_Name": "INFY - Infosys Limited", "Symbol": "INFY.NS", "Market": "NSE"},
+            {"Stock": "ITC", "Company_Name": "ITC Limited", "Display_Name": "ITC - ITC Limited", "Symbol": "ITC.NS", "Market": "NSE"},
+            {"Stock": "UDS", "Company_Name": "Updater Services Limited", "Display_Name": "UDS - Updater Services Limited", "Symbol": "UDS.NS", "Market": "NSE"}
         ]
     return pd.DataFrame(symbols_dict).drop_duplicates(subset=['Symbol'])
 
@@ -386,7 +386,7 @@ active_tab = st.radio(
     label_visibility="collapsed"
 )
 
-# URL Query parameter update (refresh par pan state save rahese)
+# URL Query parameter update
 if st.query_params.get("tab") != active_tab:
     st.query_params["tab"] = active_tab
 
@@ -405,9 +405,9 @@ if active_tab == "📊 Market Scanner":
         preview_df = preview_df[preview_df['Stock'] == search_term]
     st.dataframe(preview_df, use_container_width=True)
 
-# ----------------- 2. TECHNICAL SMC CHARTING (PLOTLY WITH DRAW TOOLS) -----------------
+# ----------------- 2. TECHNICAL SMC CHARTING (OFFICIAL TRADINGVIEW LIGHTWEIGHT CHARTS) -----------------
 elif active_tab == "📐 Technical SMC Charting":
-    st.subheader("📐 Professional SMC Technical Terminal")
+    st.subheader("📐 TradingView Lightweight Engine — SMC Terminal")
     
     col_t1, col_t2 = st.columns([3, 2])
     with col_t1:
@@ -415,9 +415,9 @@ elif active_tab == "📐 Technical SMC Charting":
         t_stock = get_symbol_from_display(t_disp) or "RELIANCE"
         clean_sym = t_stock.replace(".NS", "").replace(".BO", "")
     with col_t2:
-        tf_choice = st.selectbox("Timeframe:", ["1mo", "3mo", "6mo", "1y", "2y"], index=2)
+        tf_choice = st.selectbox("Timeframe (History):", ["3mo", "6mo", "1y", "2y", "5y"], index=2)
 
-    # 1-Click Launch Buttons for External Terminals
+    # 1-Click Launch Buttons
     dhan_tv_url = f"https://tv.dhan.co/?symbol=NSE:{clean_sym}"
     tradingview_url = f"https://in.tradingview.com/chart/?symbol=NSE:{clean_sym}"
     
@@ -427,7 +427,7 @@ elif active_tab == "📐 Technical SMC Charting":
     with btn_c2:
         st.link_button(f"📈 Open {clean_sym} in TradingView", tradingview_url, use_container_width=True)
     with btn_c3:
-        st.caption("Direct new tab ma Dhan ke TradingView official full-screen terminal access karo.")
+        st.caption("🚀 Direct official full screen terminal navi tab ma kholva mate.")
 
     # Multi-timeframe structure indicators
     c1, c2, c3, c4 = st.columns(4)
@@ -447,73 +447,161 @@ elif active_tab == "📐 Technical SMC Charting":
             df_chart = pd.DataFrame()
 
     if not df_chart.empty:
-        # EMA Calculations
-        df_chart['EMA20'] = df_chart['Close'].ewm(span=20, adjust=False).mean()
-        df_chart['EMA50'] = df_chart['Close'].ewm(span=50, adjust=False).mean()
+        # Prepare JSON for Lightweight Charts
+        candle_list = []
+        volume_list = []
+        for idx, row in df_chart.iterrows():
+            d_str = idx.strftime('%Y-%m-%d')
+            o = round(float(row['Open']), 2)
+            c = round(float(row['Close']), 2)
+            h = round(float(row['High']), 2)
+            l = round(float(row['Low']), 2)
+            v = int(row.get('Volume', 0))
 
-        fig = make_subplots(
-            rows=2, cols=1, 
-            shared_xaxes=True, 
-            vertical_spacing=0.03, 
-            row_heights=[0.75, 0.25]
-        )
+            candle_list.append({"time": d_str, "open": o, "high": h, "low": l, "close": c})
+            vol_color = "rgba(0, 200, 83, 0.45)" if c >= o else "rgba(255, 61, 0, 0.45)"
+            volume_list.append({"time": d_str, "value": v, "color": vol_color})
 
-        # Candlestick
-        fig.add_trace(go.Candlestick(
-            x=df_chart.index,
-            open=df_chart['Open'],
-            high=df_chart['High'],
-            low=df_chart['Low'],
-            close=df_chart['Close'],
-            name="Price",
-            increasing_line_color='#00c853',
-            decreasing_line_color='#ff3d00'
-        ), row=1, col=1)
+        candle_json = json.dumps(candle_list)
+        vol_json = json.dumps(volume_list)
 
-        # EMAs
-        fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA20'], mode='lines', line=dict(color='#29b6f6', width=1.5), name="EMA 20"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['EMA50'], mode='lines', line=dict(color='#ffb74d', width=1.5), name="EMA 50"), row=1, col=1)
+        # Official TradingView Lightweight Charts HTML5 Implementation
+        tv_lwc_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8" />
+            <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    background-color: #0b0e14;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
+                    overflow: hidden;
+                }}
+                #chart-container {{
+                    width: 100%;
+                    height: 590px;
+                    border: 1px solid #30363d;
+                    border-radius: 8px;
+                    position: relative;
+                }}
+                #legend {{
+                    position: absolute;
+                    top: 14px;
+                    left: 16px;
+                    z-index: 10;
+                    font-size: 13px;
+                    color: #8b949e;
+                    background: rgba(16, 22, 34, 0.85);
+                    padding: 6px 14px;
+                    border-radius: 6px;
+                    border: 1px solid #30363d;
+                    pointer-events: none;
+                }}
+                .sym {{ font-weight: bold; color: #ffffff; margin-right: 8px; }}
+                .val-up {{ color: #00c853; font-weight: 600; margin-right: 6px; }}
+                .val-dn {{ color: #ff3d00; font-weight: 600; margin-right: 6px; }}
+            </style>
+        </head>
+        <body>
+            <div id="chart-container">
+                <div id="legend"><span class="sym">NSE:{clean_sym}</span><span id="price-vals">Loading...</span></div>
+            </div>
 
-        # Volume
-        v_colors = ['#00c853' if c >= o else '#ff3d00' for c, o in zip(df_chart['Close'], df_chart['Open'])]
-        fig.add_trace(go.Bar(
-            x=df_chart.index,
-            y=df_chart['Volume'],
-            name="Volume",
-            marker_color=v_colors,
-            opacity=0.6
-        ), row=2, col=1)
+            <script>
+                const container = document.getElementById('chart-container');
+                const chart = LightweightCharts.createChart(container, {{
+                    width: container.clientWidth,
+                    height: 590,
+                    layout: {{
+                        background: {{ type: 'solid', color: '#0b0e14' }},
+                        textColor: '#8b949e',
+                        fontSize: 12
+                    }},
+                    grid: {{
+                        vertLines: {{ color: '#161b22' }},
+                        horzLines: {{ color: '#161b22' }}
+                    }},
+                    crosshair: {{
+                        mode: LightweightCharts.CrosshairMode.Normal,
+                        vertLine: {{
+                            color: '#8b949e',
+                            width: 1,
+                            style: 1,
+                            labelBackgroundColor: '#21262d'
+                        }},
+                        horzLine: {{
+                            color: '#8b949e',
+                            width: 1,
+                            style: 1,
+                            labelBackgroundColor: '#21262d'
+                        }}
+                    }},
+                    rightPriceScale: {{
+                        borderColor: '#30363d',
+                        scaleMargins: {{ top: 0.1, bottom: 0.2 }}
+                    }},
+                    timeScale: {{
+                        borderColor: '#30363d',
+                        timeVisible: true,
+                        secondsVisible: false
+                    }}
+                }});
 
-        fig.update_layout(
-            title=f"📈 {clean_sym} (NSE) — Candlestick & Volume Chart",
-            template="plotly_dark",
-            xaxis_rangeslider_visible=False,
-            height=630,
-            paper_bgcolor="#161b22",
-            plot_bgcolor="#0b0e14",
-            margin=dict(l=10, r=10, t=40, b=10),
-            xaxis=dict(showgrid=True, gridcolor="#21262d"),
-            yaxis=dict(showgrid=True, gridcolor="#21262d", side="right"),
-            yaxis2=dict(showgrid=False, side="right", title="Volume"),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
+                // Candlestick Series (Exact TradingView Colors)
+                const candleSeries = chart.addCandlestickSeries({{
+                    upColor: '#00c853',
+                    downColor: '#ff3d00',
+                    borderVisible: false,
+                    wickUpColor: '#00c853',
+                    wickDownColor: '#ff3d00'
+                }});
 
-        st.info("💡 **SMC Drawing Tools:** Chart na top-right modebar mathi **Box Tool** પસંદ કરીને Order Block દોરી શકાય છે અને **Line Tool** વડે Trendline / BOS લાઇન માર્ક કરી શકાય છે.")
+                // Volume Overlay Series
+                const volumeSeries = chart.addHistogramSeries({{
+                    priceFormat: {{ type: 'volume' }},
+                    priceScaleId: '',
+                    scaleMargins: {{ top: 0.82, bottom: 0 }}
+                }});
 
-        # Plotly Drawing Tools Activated
-        st.plotly_chart(
-            fig, 
-            use_container_width=True,
-            config={
-                'scrollZoom': True,
-                'displayModeBar': True,
-                'modeBarButtonsToAdd': [
-                    'drawline',       # BOS / CHoCH / Trendline
-                    'drawrect',       # SMC Order Block / Demand-Supply Box
-                    'eraseshape'      # Erase tool
-                ]
-            }
-        )
+                const cData = {candle_json};
+                const vData = {vol_json};
+
+                candleSeries.setData(cData);
+                volumeSeries.setData(vData);
+
+                // Legend Update on Crosshair Move
+                const legendEl = document.getElementById('price-vals');
+                const lastBar = cData[cData.length - 1];
+                if (lastBar) {{
+                    const colorClass = lastBar.close >= lastBar.open ? 'val-up' : 'val-dn';
+                    legendEl.innerHTML = `O <span class="${{colorClass}}">${{lastBar.open}}</span> H <span class="${{colorClass}}">${{lastBar.high}}</span> L <span class="${{colorClass}}">${{lastBar.low}}</span> C <span class="${{colorClass}}">${{lastBar.close}}</span>`;
+                }}
+
+                chart.subscribeCrosshairMove(param => {{
+                    if (!param || !param.time || !param.seriesData.has(candleSeries)) {{
+                        if (lastBar) {{
+                            const colorClass = lastBar.close >= lastBar.open ? 'val-up' : 'val-dn';
+                            legendEl.innerHTML = `O <span class="${{colorClass}}">${{lastBar.open}}</span> H <span class="${{colorClass}}">${{lastBar.high}}</span> L <span class="${{colorClass}}">${{lastBar.low}}</span> C <span class="${{colorClass}}">${{lastBar.close}}</span>`;
+                        }}
+                        return;
+                    }}
+                    const bar = param.seriesData.get(candleSeries);
+                    const colorClass = bar.close >= bar.open ? 'val-up' : 'val-dn';
+                    legendEl.innerHTML = `O <span class="${{colorClass}}">${{bar.open}}</span> H <span class="${{colorClass}}">${{bar.high}}</span> L <span class="${{colorClass}}">${{bar.low}}</span> C <span class="${{colorClass}}">${{bar.close}}</span>`;
+                }});
+
+                // Responsive Resize Handler
+                window.addEventListener('resize', () => {{
+                    chart.applyOptions({{ width: container.clientWidth }});
+                }});
+            </script>
+        </body>
+        </html>
+        """
+        components.html(tv_lwc_html, height=610)
     else:
         st.warning(f"⚠️ {clean_sym} candle data fetch thai shakyo nathi.")
 
